@@ -1,4 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+.zed
+.vscode
 
 # dependencies
 /node_modules
@@ -41,3 +43,6 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# clerk configuration (can include secrets)
+/.clerk/
