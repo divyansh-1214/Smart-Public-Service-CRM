@@ -1,12 +1,12 @@
 # CRM Project Agent Context
 
-Last updated: 2026-03-19
+Last updated: 2026-03-18
 
 ## Project Overview
 - Project type: Next.js App Router application (TypeScript)
 - Workspace root: `d:/work/dev/crm`
 - Package manager/scripts: npm (`dev`, `build`, `start`, `lint`)
-- Runtime stack: Next.js 16, React 19, Prisma 7, PostgreSQL (`pg`), Supabase SSR helpers
+- Runtime stack: Next.js 16, React 19, Prisma 7, Neon/PostgreSQL (`@prisma/adapter-neon` + `@neondatabase/serverless`), Clerk authentication.
 
 ## What Has Already Been Implemented
 
@@ -20,8 +20,8 @@ Last updated: 2026-03-19
 
 ### 2. Prisma Client Setup
 - Shared Prisma client is implemented in `lib/prisma.ts`.
-- Uses `@prisma/adapter-pg` and `pg` pool.
-- Requires `DATABASE_URL` environment variable.
+- Uses `@prisma/adapter-neon` (`PrismaNeonHttp`) with `@neondatabase/serverless`.
+- Requires `DATABASE_URL` environment variable and throws if it is missing.
 - Reuses client instance via `globalThis` in non-production to avoid multiple client creation.
 
 ### 3. API Endpoints
@@ -56,34 +56,27 @@ Last updated: 2026-03-19
 #### Base API Route
 - `GET /api` returns a simple hello message with optional `name` query string.
 
-### 4. Supabase Utilities
-- Supabase browser/server/middleware helpers exist in `utils/supabase/`:
-  - `client.ts`
-  - `server.ts`
-  - `middleware.ts`
-- They rely on:
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
-- Note: helpers exist, but authentication flows and route protection are not wired into app pages yet.
+### 4. Authentication / Clerk
+- Clerk is wired into `app/layout.tsx` via `ClerkProvider` and header components (`SignInButton`, `SignUpButton`, `UserButton`, `Show`).
+- An example authenticated API route exists at `app/api/secure-api-route/route.ts` and returns the current `userId` or `401` when unauthenticated.
+- Clerk configuration relies on the standard Next.js + Clerk environment variables (for example `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`) configured outside this repo.
 
 ### 5. Frontend State
-- `app/page.tsx` is still default template UI content.
-- `app/layout.tsx` metadata is default (`Create Next App`).
-- No CRM dashboard or user management UI has been integrated yet.
+- `app/page.tsx` renders a minimal CRM landing view (title and welcome text) but no data-driven dashboard yet.
+- `app/layout.tsx` sets basic CRM metadata and wraps the app in `ClerkProvider` with a simple auth header (sign-in/sign-up or user menu).
+- No CRM list/detail dashboard or user management UI has been implemented beyond this landing page.
 
 ## Current Known Gaps / Next Work
-- Build CRM UI pages (list users, create/edit user forms).
-- Wire frontend to `/api/users` endpoints.
-- Replace default app metadata/title/description.
-- Add authentication and authorization logic (if required).
-- Add middleware usage and protected routes (if required).
+- Build CRM UI pages (list users, create/edit user forms, dashboard layout).
+- Wire the CRM UI to `/api/users` endpoints.
+- Add richer page metadata and navigation once the CRM screens exist.
+- Extend Clerk-based authentication and authorization across pages and APIs (beyond the sample `secure-api-route`).
 - Add tests (API and integration), since test setup is not present yet.
 - Add seed and migration workflow notes in README.
 
 ## Environment Variables Expected
 - `DATABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
+- Clerk environment variables per the Clerk + Next.js integration (for example `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`).
 
 ## Conventions Already Used
 - API handlers return JSON with explicit error messages and status codes.
@@ -96,3 +89,5 @@ Last updated: 2026-03-19
 - Prefer incremental changes that preserve existing API response shapes.
 - If introducing shared validation, keep current validation semantics and status codes compatible.
 - Before major refactors, verify compatibility with existing handlers in `app/api/users/`.
+- Use this file as the canonical high-level project log: after each significant change, update "What Has Already Been Implemented" and "Current Known Gaps / Next Work" instead of creating new docs.
+- When a gap from "Current Known Gaps / Next Work" is addressed, move or summarize it under "What Has Already Been Implemented" so future sessions can reconstruct the current state.

@@ -7,9 +7,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // Use the direct connection URL (port 5432) for CLI commands and migrations.
-    // PgBouncer (port 6543) blocks DDL statements required by prisma migrate / db push.
-    // DATABASE_URL (pooled) is used only at runtime via the PrismaPg driver adapter.
-    url: process.env["DIRECT_URL"] ?? "",
+    // Neon uses a single connection URL for both CLI commands and migrations.
+    // No separate DIRECT_URL is needed (unlike Supabase with PgBouncer).
+    url: process.env["DATABASE_URL"] ?? "",
   },
 });
