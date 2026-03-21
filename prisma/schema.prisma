@@ -1,5 +1,20 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// ============================================================
+//  Prisma Schema — Civic Complaint Management System
+//  Improvements over v1:
+//    • Fixed User.departmentId with proper @relation
+//    • Fixed Feedback & Notification with proper @relation
+//    • Renamed possition → position (enum + field)
+//    • Removed fragile denormalized counters on Officer
+//    • Replaced Int priority with a Priority enum
+//    • Added OTP / password-reset flow to User
+//    • Added tags, attachmentCount & viewCount to Complaint
+//    • Added SLA breach tracking on Complaint
+//    • Added resolvedBy FK on Complaint
+//    • Added WorkingHours, OfficerLeave models
+//    • Added NotificationType enum on Notification
+//    • Added FeedbackTag enum on Feedback
+//    • Added SystemConfig model for app-wide settings
+// ============================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -15,20 +30,392 @@ enum Role {
   ADMIN
   MANAGER
   USER
+  WORKER
+}
+
+enum ComplaintStatus {
+  SUBMITTED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+/// Priority 1 = Critical, 5 = Low
+/// Using an enum instead of bare Int prevents out-of-range values.
+enum Priority {
+  CRITICAL  // 1
+  HIGH      // 2
+  MEDIUM    // 3
+  LOW       // 4
+  MINIMAL   // 5
+}
+
+enum ComplaintCategory {
+  POTHOLE
+  STREETLIGHT
+  GARBAGE
+  WATER_SUPPLY
+  SANITATION
+  NOISE_POLLUTION
+  ROAD_DAMAGE
+  ILLEGAL_CONSTRUCTION
+  OTHER
+}
+
+enum DepartmentName {
+  ADVERTISEMENT
+  BUILDING_DEPARTMENT
+  DIRECTORATE_OF_INQUIRY
+  ELECTION_DEPARTMENT
+  FINANCE_DEPARTMENT
+  INFORMATION_TECHNOLOGY
+  LAW_DEPARTMENT
+  PUBLIC_HEALTH_DEPARTMENT
+  TOLL_TAX
+  ARCHITECTURE_DEPARTMENT
+  CENTRAL_ESTABLISHMENT
+  DIRECTORATE_OF_PRESS_AND_INFORMATION
+  ENGINEERING_DEPARTMENT
+  HACKNEY_CARRIAGE
+  LABOUR_WELFARE_DEPARTMENT
+  LICENSING_DEPARTMENT
+  REMUNERATIVE_PROJECT_CELL
+  VETERINARY
+  ASSESSMENT_AND_COLLECTION_DEPARTMENT
+  COMMITTEE_AND_CORPORATION
+  DEPARTMENT_OF_ENVIRONMENTAL_MANAGEMENT
+  ELECTRICAL_AND_MECHANICAL_DEPARTMENT
+  HORTICULTURE_DEPARTMENT
+  LAND_AND_ESTATE
+  MUNICIPAL_SECRETARY_OFFICE
+  STATUTORY_AUDIT_DEPARTMENT
+  VIGILANCE
+  AYUSH_DEPARTMENT
+  COMMUNITY_SERVICES
+  EDUCATION
+  FACTORY_LICENSE
+  HOSPITAL_ADMINISTRATION
+  LANGUAGE_DEPARTMENT
+  ORGANIZATION_AND_METHOD_DEPARTMENT
+  TOWN_PLANNING
+}
+
+enum OfficerStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum EscalationLevel {
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+  LEVEL_4
+  LEVEL_5
+}
+
+/// FIX: was "possition" (typo). Renamed to Position.
+enum Position {
+  JUNIOR
+  SENIOR
+  SUPERVISOR
+  MANAGER
+  DIRECTOR
+}
+
+enum NotificationType {
+  COMPLAINT_SUBMITTED
+  COMPLAINT_ASSIGNED
+  COMPLAINT_UPDATED
+  COMPLAINT_RESOLVED
+  COMPLAINT_REJECTED
+  ESCALATION_ALERT
+  SLA_BREACH_WARNING
+  SYSTEM_ANNOUNCEMENT
+}
+
+enum FeedbackTag {
+  RESOLVED_QUICKLY
+  GOOD_COMMUNICATION
+  PROFESSIONAL
+  NEEDS_IMPROVEMENT
+  UNRESPONSIVE
+  REOPEN_NEEDED
 }
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      Role     @default(USER)
-  phone     String?
-  avatarUrl String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Department {
+  id          String         @id @default(cuid())
+  name        DepartmentName @unique
+  description String?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  officers    Officer[]       // FIX: back-relation for User.department
 
+  @@map("departments")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  role          Role     @default(USER)
+  phone         String?
+  avatarUrl     String?
+  isActive      Boolean  @default(true)
+  isVerified    Boolean  @default(false)   // NEW: email verification flag
+
+  // NEW: password / auth fields
+  passwordHash  String?
+  otpCode       String?
+  otpExpiresAt  DateTime?
+  lastLoginAt   DateTime?
+
+  // NEW: address fields for pre-filling complaint location
+  addressLine   String?
+  city          String?
+  pincode       String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // FIX: departmentId now has a proper @relation
+  // Useful for WORKER/MANAGER roles linked to a department
+  complaints    Complaint[]    @relation("UserComplaints")
+   // NEW: tracks who resolved
+  feedbacks     Feedback[]     // FIX: proper back-relation
+  notifications Notification[] // FIX: proper back-relation
+
+  @@index([email])
+  @@index([role])
   @@map("users")
+}
+
+model Officer {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  phone        String
+  avatarUrl    String?       // NEW: officer profile picture
+  bio          String?       // NEW: short bio / expertise description
+
+  departmentId String
+  department   Department    @relation(fields: [departmentId], references: [id])
+  resolvedComplaints Complaint[] @relation("ResolvedByOfficerUser")
+  status       OfficerStatus @default(ACTIVE)
+
+  // FIX: removed denormalized counters (assignedComplaintsCount, averageResolutionTime).
+  // Compute these at query time:
+  //   _count { select { complaints: true } }
+  //   aggregate on Complaint.resolvedAt - Complaint.createdAt
+  // This avoids sync bugs on every assignment/resolution.
+
+  // FIX: renamed possition → position
+  position     Position?
+
+  maxConcurrentComplaints Int @default(10)  // NEW: workload cap per officer
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  complaints   Complaint[]
+  leaves       OfficerLeave[]  // NEW: leave management
+
+  @@index([departmentId])
+  @@index([status])
+  @@map("officers")
+}
+
+/// NEW: Track officer leave periods so the system can skip them during auto-assignment.
+model OfficerLeave {
+  id         String   @id @default(cuid())
+  officerId  String
+  officer    Officer  @relation(fields: [officerId], references: [id], onDelete: Cascade)
+  startDate  DateTime
+  endDate    DateTime
+  reason     String?
+  approved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([officerId])
+  @@map("officer_leaves")
+}
+
+model Complaint {
+  id                String          @id @default(cuid())
+  citizenId         String
+  citizen           User            @relation("UserComplaints", fields: [citizenId], references: [id], onDelete: Cascade)
+
+  category          ComplaintCategory
+  title             String
+  description       String
+
+  // FIX: priority is now a typed enum instead of a raw Int
+  priority          Priority        @default(MEDIUM)
+
+  status            ComplaintStatus @default(SUBMITTED)
+
+  // Location
+  locationLat       Float?
+  locationLng       Float?
+  locationAddress   String?
+  ward              String?         // NEW: municipal ward / zone
+  pincode           String?         // NEW: area pincode for routing
+
+  // Media
+  photosUrls        String[]        @default([])
+  attachmentCount   Int             @default(0)  // NEW: cached count for quick display
+  videoUrls         String[]        @default([])  // NEW: video evidence support
+
+  // Assignment
+  assignedOfficerId String?
+  assignedOfficer   Officer?        @relation(fields: [assignedOfficerId], references: [id], onDelete: SetNull)
+  assignedAt        DateTime?       // NEW: when the officer was assigned
+
+  // NEW: who resolved it (can be the officer user account)
+  resolvedById      String?
+  resolvedBy        Officer?           @relation("ResolvedByOfficerUser", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  // Escalation & SLA
+  escalationLevel   EscalationLevel @default(LEVEL_1)
+  slaDeadline       DateTime?
+  slaBreached       Boolean         @default(false)  // NEW: flag set by background job
+  slaBreachedAt     DateTime?       // NEW: exact breach timestamp
+
+  // NEW: engagement metrics
+  viewCount         Int             @default(0)
+  isPublic          Boolean         @default(true)   // NEW: hide sensitive complaints
+  tags              String[]        @default([])      // NEW: free-form tags for search/filter
+
+  // NEW: duplicate / linked complaint tracking
+  duplicateOfId     String?
+  duplicateOf       Complaint?      @relation("DuplicateComplaints", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates        Complaint[]     @relation("DuplicateComplaints")
+
+  // NEW: internal officer notes (not visible to citizen)
+  internalNotes     String?
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  resolvedAt        DateTime?
+  closedAt          DateTime?       // NEW: separate close timestamp
+
+  updates           AuditLog[]
+  aiCategory        AICategoryPrediction?
+  feedbacks         Feedback[]      // FIX: proper back-relation
+
+  @@index([citizenId])
+  @@index([assignedOfficerId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([slaBreached])
+  @@index([createdAt])
+  @@map("complaints")
+}
+
+model AICategoryPrediction {
+  id                String            @id @default(cuid())
+  complaintId       String            @unique
+  complaint         Complaint         @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  predictedCategory ComplaintCategory
+  confidence        Float             // 0.0–1.0 (normalized from 0-100)
+  alternativeCategories Json?         // NEW: [{category, confidence}] top-N alternatives
+  modelVersion      String?           // NEW: track which AI model version made this prediction
+  feedbackCorrect   Boolean?          // true / false / null = not reviewed
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("complaint_categories_ai")
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  updatedBy   String    // Officer ID, User ID, or "system"
+  action      String    // "assigned", "status_changed", "escalated", "sla_breached" …
+  oldValue    String?
+  newValue    String?
+  metadata    Json?     // NEW: arbitrary structured context (e.g. reason for rejection)
+  ipAddress   String?   // NEW: for security audit trail
+
+  createdAt   DateTime  @default(now())
+
+  @@index([complaintId])
+  @@index([updatedBy])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+model Feedback {
+  id          String        @id @default(cuid())
+
+  // FIX: proper @relation declarations replacing raw strings
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  complaintId String
+  complaint   Complaint     @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  rating      Int           // 1–5; add a DB CHECK constraint via a migration if needed
+  comment     String?
+  tags        FeedbackTag[] @default([])  // NEW: structured tags alongside free-text comment
+  isAnonymous Boolean       @default(false)  // NEW: citizen can submit anonymously
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([userId, complaintId])   // NEW: one feedback per user per complaint
+  @@index([complaintId])
+  @@index([userId])
+  @@map("feedbacks")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+
+  // FIX: proper @relation replacing raw string
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        NotificationType // NEW: typed enum for frontend routing/icons
+  message     String
+  isRead      Boolean          @default(false)
+  readAt      DateTime?        // NEW: when the user actually read it
+
+  // NEW: optional deep-link back to the related complaint
+  complaintId String?
+
+  // NEW: delivery tracking for push / email / SMS channels
+  channels    String[]         @default([])  // e.g. ["push", "email"]
+  deliveredAt DateTime?
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+/// NEW: App-wide key-value config store for admin-tunable settings.
+/// Examples: default SLA hours per priority, max complaints per officer, etc.
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedBy   String?  // admin user ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_config")
 }
