@@ -116,7 +116,6 @@ enum EscalationLevel {
   LEVEL_5
 }
 
-/// FIX: was "possition" (typo). Renamed to Position.
 enum Position {
   JUNIOR
   SENIOR
@@ -155,6 +154,12 @@ model Department {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   officers    Officer[]       // FIX: back-relation for User.department
+  
+  locationLat       Float?
+  locationLng       Float?
+  addressLine   String?
+  city          String?
+  pincode       String?
 
   @@map("departments")
 }
