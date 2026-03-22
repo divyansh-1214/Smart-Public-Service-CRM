@@ -22,14 +22,14 @@ const complaintSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(20, "Please provide more details (min 20 characters)"),
   category: z.nativeEnum(ComplaintCategory),
-  priority: z.nativeEnum(Priority).default(Priority.MEDIUM),
+  priority: z.nativeEnum(Priority),
   locationAddress: z.string().min(5, "Please provide a valid address"),
   locationLat: z.number().optional(),
   locationLng: z.number().optional(),
-  photosUrls: z.array(z.string().url()).default([]),
+  photosUrls: z.array(z.string().url()),
 });
 
-type ComplaintFormData = z.infer<typeof complaintSchema>;
+type ComplaintFormData = z.input<typeof complaintSchema>;
 
 interface GrievanceFormProps {
   citizenId: string;
