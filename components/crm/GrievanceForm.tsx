@@ -40,6 +40,8 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const {
     register,
@@ -62,6 +64,37 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
   const nextStep = () => setStep((s) => Math.min(s + 1, 4));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
+  const handleUseCurrentLocation = () => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setLocationError("Geolocation is not supported on this device.");
+      return;
+    }
+
+    setLocationError(null);
+    setIsLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setValue("locationLat", position.coords.latitude, { shouldValidate: true });
+        setValue("locationLng", position.coords.longitude, { shouldValidate: true });
+        setIsLocating(false);
+      },
+      (geoError) => {
+        setIsLocating(false);
+        if (geoError.code === geoError.PERMISSION_DENIED) {
+          setLocationError("Location permission denied. Please allow location access.");
+          return;
+        }
+        setLocationError("Unable to get current location. Please try again.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
+
   const onSubmit = async (data: ComplaintFormData) => {
     setIsSubmitting(true);
     setError(null);
@@ -69,7 +102,12 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
       const response = await fetch("/api/complaint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, citizenId }),
+        body: JSON.stringify({
+          ...data,
+          citizenId,
+          locationLat: data.locationLat,
+          locationLng: data.locationLng,
+        }),
       });
 
       const result = await response.json();
@@ -231,6 +269,26 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
                 </div>
                 {errors.locationAddress && <p className="mt-1 text-xs text-red-500">{errors.locationAddress.message}</p>}
               </div>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocation}
+                  disabled={isLocating}
+                  className="w-full px-4 py-3 rounded-xl border border-blue-200 text-blue-700 font-semibold hover:bg-blue-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isLocating ? "Getting current location..." : "Use my current location"}
+                </button>
+                {formData.locationLat !== undefined && formData.locationLng !== undefined && (
+                  <p className="text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+                    Location captured: {formData.locationLat.toFixed(6)}, {formData.locationLng.toFixed(6)}
+                  </p>
+                )}
+                {locationError && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                    {locationError}
+                  </p>
+                )}
+              </div>
               <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex gap-3">
                 <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-700">
@@ -301,7 +359,7 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
             <button
               type="button"
               onClick={nextStep}
-              className="flex-[2] bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
+              className="flex-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
             >
               Next Step
               <ChevronRight className="w-5 h-5" />
@@ -310,7 +368,7 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
             <button
               type="submit"
               disabled={isSubmitting || !isValid}
-              className="flex-[2] bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-2 bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>
