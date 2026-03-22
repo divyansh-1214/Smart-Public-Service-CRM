@@ -1,0 +1,192 @@
+
+<style>
+#erd { width: 100%; overflow-x: auto; padding: 0 0 8px; }
+#erd svg { display: block; margin: 0 auto; }
+</style>
+<div id="erd"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"Anthropic Sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+    primaryColor: dark ? '#1e1d2e' : '#EEEDFE',
+    primaryBorderColor: dark ? '#534AB7' : '#534AB7',
+    primaryTextColor: dark ? '#c2c0b6' : '#26215C',
+    edgeLabelBackground: dark ? '#2C2C2A' : '#F1EFE8',
+  },
+});
+
+const diagram = `erDiagram
+  USER {
+    string id PK
+    string email
+    string name
+    string role
+    boolean isVerified
+    string passwordHash
+    string otpCode
+    datetime lastLoginAt
+  }
+  OFFICER {
+    string id PK
+    string name
+    string email
+    string departmentId FK
+    string status
+    string position
+    int maxConcurrentComplaints
+  }
+  DEPARTMENT {
+    string id PK
+    string name
+    boolean isActive
+    string addressLine
+    string city
+  }
+  COMPLAINT {
+    string id PK
+    string citizenId FK
+    string departmentId FK
+    string assignedOfficerId FK
+    string resolvedById FK
+    string duplicateOfId FK
+    string category
+    string priority
+    string status
+    string escalationLevel
+    boolean slaBreached
+    datetime slaDeadline
+    int viewCount
+    boolean isPublic
+  }
+  COMPLAINT_ASSIGNMENT {
+    string id PK
+    string complaintId FK
+    string officerId FK
+    datetime assignedAt
+    datetime relievedAt
+    string outcome
+    string assignedBy
+    datetime deadline
+  }
+  AI_PREDICTION {
+    string id PK
+    string complaintId FK
+    string predictedCategory
+    float confidence
+    string modelVersion
+    boolean feedbackCorrect
+  }
+  AUDIT_LOG {
+    string id PK
+    string complaintId FK
+    string updatedBy
+    string action
+    string oldValue
+    string newValue
+    string ipAddress
+  }
+  FEEDBACK {
+    string id PK
+    string userId FK
+    string complaintId FK
+    int rating
+    string tags
+    boolean isAnonymous
+  }
+  NOTIFICATION {
+    string id PK
+    string userId FK
+    string complaintId
+    string type
+    boolean isRead
+    datetime readAt
+  }
+  OFFICER_LEAVE {
+    string id PK
+    string officerId FK
+    datetime startDate
+    datetime endDate
+    boolean approved
+  }
+  SYSTEM_CONFIG {
+    string id PK
+    string key
+    string value
+    string description
+  }
+
+  USER ||--o{ COMPLAINT : "files"
+  USER ||--o{ FEEDBACK : "submits"
+  USER ||--o{ NOTIFICATION : "receives"
+
+  DEPARTMENT ||--o{ OFFICER : "employs"
+  DEPARTMENT ||--o{ COMPLAINT : "handles"
+
+  OFFICER }o--|| DEPARTMENT : "belongs to"
+  OFFICER ||--o{ OFFICER_LEAVE : "takes"
+  OFFICER ||--o{ COMPLAINT_ASSIGNMENT : "assignment history"
+  OFFICER ||--o{ COMPLAINT : "assigned to"
+  OFFICER ||--o{ COMPLAINT : "resolves"
+
+  COMPLAINT }o--|| USER : "filed by"
+  COMPLAINT }o--|| DEPARTMENT : "routed to"
+  COMPLAINT }o--o| OFFICER : "assigned officer"
+  COMPLAINT }o--o| OFFICER : "resolved by"
+  COMPLAINT o|--o| COMPLAINT : "duplicate of"
+  COMPLAINT ||--o{ COMPLAINT_ASSIGNMENT : "tracks"
+  COMPLAINT ||--o| AI_PREDICTION : "classified by"
+  COMPLAINT ||--o{ AUDIT_LOG : "audit trail"
+  COMPLAINT ||--o{ FEEDBACK : "receives"
+
+  FEEDBACK }o--|| USER : "from citizen"
+  FEEDBACK }o--|| COMPLAINT : "about"
+
+  NOTIFICATION }o--|| USER : "for"
+
+  OFFICER_LEAVE }o--|| OFFICER : "for officer"
+
+  COMPLAINT_ASSIGNMENT }o--|| COMPLAINT : "for complaint"
+  COMPLAINT_ASSIGNMENT }o--|| OFFICER : "for officer"
+
+  AI_PREDICTION ||--|| COMPLAINT : "predicts"
+
+  AUDIT_LOG }o--|| COMPLAINT : "logs"
+`;
+
+const { svg } = await mermaid.render('erd-svg', diagram);
+document.getElementById('erd').innerHTML = svg;
+
+document.querySelectorAll('#erd svg .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+
+document.querySelectorAll('#erd svg .row-rect-odd path, #erd svg .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>

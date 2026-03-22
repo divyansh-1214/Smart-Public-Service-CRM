@@ -136,51 +136,51 @@ export async function PATCH(
       }
     }
 
-    // 2. Perform updates in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      const updateData: any = {};
-      
-      if (status) updateData.status = status;
+    const updateData: any = {};
 
-      if (requestedPrimaryOfficerId) {
-        updateData.assignedOfficer = { connect: { id: requestedPrimaryOfficerId } };
-        updateData.assignedAt = new Date();
-        if (!status && currentComplaint.status === ComplaintStatus.SUBMITTED) {
-          updateData.status = ComplaintStatus.ASSIGNED;
-        }
-      } else if (primaryOfficerId !== undefined || officerIds !== undefined) {
-        updateData.assignedOfficer = { disconnect: true };
-        updateData.assignedAt = null;
+    if (status !== undefined) updateData.status = status;
+
+    if (requestedPrimaryOfficerId) {
+      updateData.assignedOfficerId = requestedPrimaryOfficerId;
+      updateData.assignedAt = new Date();
+      if (!status && currentComplaint.status === ComplaintStatus.SUBMITTED) {
+        updateData.status = ComplaintStatus.ASSIGNED;
       }
+    } else if (primaryOfficerId !== undefined || officerIds !== undefined) {
+      updateData.assignedOfficerId = null;
+      updateData.assignedAt = null;
+    }
 
-      const updated = await tx.complaint.update({
-        where: { id },
-        data: updateData,
-        include: {
-          assignedOfficer: true
-        }
-      });
+    // 2. Perform update first (HTTP mode does not support Prisma transactions)
+    await prisma.complaint.update({
+      where: { id },
+      data: updateData,
+    });
 
-      // 3. Create Audit Log
-      await tx.auditLog.create({
-        data: {
-          complaintId: id,
-          updatedBy: "system", // Replace with session user if available
-          action: "assignment_updated",
-          newValue: JSON.stringify({
-            officerIds,
-            primaryOfficerId: requestedPrimaryOfficerId,
-            status
-          }),
-          oldValue: JSON.stringify({
-            officerIds: currentComplaint.assignedOfficerId ? [currentComplaint.assignedOfficerId] : [],
-            primaryOfficerId: currentComplaint.assignedOfficerId,
-            status: currentComplaint.status
-          })
-        }
-      });
+    const result = await prisma.complaint.findUnique({
+      where: { id },
+      include: { assignedOfficer: true },
+    });
 
-      return updated;
+    // 3. Best-effort audit log write; do not fail the assignment update if logging fails
+    await prisma.auditLog.create({
+      data: {
+        complaintId: id,
+        updatedBy: "system", // Replace with session user if available
+        action: "assignment_updated",
+        newValue: JSON.stringify({
+          officerIds,
+          primaryOfficerId: requestedPrimaryOfficerId,
+          status
+        }),
+        oldValue: JSON.stringify({
+          officerIds: currentComplaint.assignedOfficerId ? [currentComplaint.assignedOfficerId] : [],
+          primaryOfficerId: currentComplaint.assignedOfficerId,
+          status: currentComplaint.status
+        })
+      }
+    }).catch((auditError) => {
+      console.error("[PATCH /api/complaint/assign/[id]] audit log failed", auditError);
     });
 
     return NextResponse.json({

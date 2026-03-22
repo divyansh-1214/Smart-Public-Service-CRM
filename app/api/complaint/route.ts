@@ -59,13 +59,6 @@ export async function GET(request: NextRequest) {
                             }
                         }
                     },
-                    assignedWorkers: {
-                        select: {
-                            id: true,
-                            name: true,
-                            position: true
-                        }
-                    },
                     department: {
                         select: { name: true }
                     }
