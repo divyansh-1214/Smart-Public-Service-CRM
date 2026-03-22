@@ -358,7 +358,7 @@ model ComplaintAssignment {
   // e.g. "No field visit in 3 days", "Citizen complained about officer attitude"
   deadline DateTime?                    // Optional deadline for next action (e.g. follow-up, resolution)
   assignedBy  String?                     // User ID of admin/manager who made this assignment
-
+  
   @@index([complaintId])
   @@index([officerId])
   @@map("complaint_assignments")
