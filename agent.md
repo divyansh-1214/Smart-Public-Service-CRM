@@ -1,6 +1,6 @@
 # CRM Project Agent Context
 
-Last updated: 2026-03-18
+Last updated: 2026-03-22
 
 ## Project Overview
 - Project type: Next.js App Router application (TypeScript)
@@ -13,10 +13,14 @@ Last updated: 2026-03-18
 ### 1. Database Layer
 - Prisma schema exists in `prisma/schema.prisma`.
 - PostgreSQL datasource is configured.
-- `Role` enum is defined with values: `ADMIN`, `MANAGER`, `USER`.
-- `User` model is implemented with:
-  - `id` (cuid), `email` (unique), `name`, `role`, `phone`, `avatarUrl`, `isActive`, `createdAt`, `updatedAt`.
-- Table mapping is set with `@@map("users")`.
+- Core enums and models are implemented for complaint workflow:
+  - Enums include `Role`, `ComplaintStatus`, `Priority`, `ComplaintCategory`, `DepartmentName`, `OfficerStatus`, `EscalationLevel`, `Position`, `NotificationType`, `FeedbackTag`.
+  - Models include `User`, `Officer`, `Department`, `Complaint`, `OfficerLeave`, `AuditLog`, `Feedback`, `Notification`, `SystemConfig`, `AICategoryPrediction`.
+- `Department` includes geolocation/address fields:
+  - `locationLat`, `locationLng`, `addressLine`, `city`, `pincode`.
+- `Complaint` includes both:
+  - `DEPARTMENT_NAME` (enum), and
+  - `departmentId` relation to `Department`.
 
 ### 2. Prisma Client Setup
 - Shared Prisma client is implemented in `lib/prisma.ts`.
@@ -26,68 +30,80 @@ Last updated: 2026-03-18
 
 ### 3. API Endpoints
 
-#### Health Endpoint
-- `GET /api/health` is implemented.
-- Executes lightweight DB check (`SELECT 1`).
-- Returns:
-  - `200` with status `ok` when DB is reachable.
-  - `503` with status `error` when DB is not reachable.
-
-#### Users Collection
-- `GET /api/users` is implemented with:
-  - Filters: `role`, `isActive`, `search`
-  - Pagination: `page`, `limit`
-  - Sorting: `createdAt desc`
-  - Response shape: `{ data, meta }`
-- `POST /api/users` is implemented with:
-  - Validation for `email`, `name`, optional `role`
-  - Email normalization (`trim + lowercase`)
-  - Prisma unique conflict handling (`P2002` -> `409`)
-
-#### Single User
-- `GET /api/users/[id]` is implemented.
-- `PATCH /api/users/[id]` is implemented with:
-  - Partial updates
-  - Field validation (`email`, `name`, `role`, `isActive`)
-  - `phone` and `avatarUrl` can be set to `null`
-  - Prisma unique conflict handling (`P2002` -> `409`)
-- `DELETE /api/users/[id]` is implemented.
-
-#### Base API Route
+#### Base and Health
 - `GET /api` returns a simple hello message with optional `name` query string.
+- `GET /api/health` is implemented with a DB connectivity check (`SELECT 1`).
+
+#### Users APIs
+- `GET /api/users` supports filters (`role`, `isActive`, `search`) and pagination (`page`, `limit`).
+- `POST /api/users` validates input, normalizes email, and handles unique constraint conflicts (`P2002` -> `409`).
+- `GET /api/users/[id]`, `PATCH /api/users/[id]`, and `DELETE /api/users/[id]` are implemented.
+- `PATCH /api/users/[id]` supports partial updates with validation and uniqueness handling.
+- `GET /api/users/sync` and `POST /api/users/sync` are active and used with Clerk-backed syncing.
+
+#### Worker (Officer) APIs
+- Worker routes are aligned to the `Officer` model (not `User`).
+- `GET /api/worker` supports filtering (`status`, `position`, `departmentId`, `search`) plus pagination.
+- `POST /api/worker` creates officers with validation and department existence check.
+- `GET /api/worker/[id]`, `PATCH /api/worker/[id]`, and `DELETE /api/worker/[id]` are implemented.
+- `GET /api/worker/sync` and `POST /api/worker/sync` integrate Clerk identity with officer records.
+
+#### Department APIs
+- `GET /api/department` lists departments with pagination/filtering.
+- `POST /api/department` creates departments with `DepartmentName` enum validation and location/address fields.
+- `GET /api/department/[id]` fetches one department.
+- `PATCH /api/department/[id]` updates department metadata and location/address fields.
+- `DELETE /api/department/[id]` prevents deletion when officers are assigned.
+
+#### Complaint APIs
+- `GET /api/complaint` lists complaints with pagination and citizen relation include.
+- `POST /api/complaint` validates payload with Zod and creates complaint records.
+- Complaint create route currently defaults `citizenId` to `cmmwnbwv200008goismex9hsg` when omitted.
+- `GET /api/complaint/assign/[id]` returns complaint assignment context and department-scoped active officers.
+- `PATCH /api/complaint/assign/[id]` updates assignment/status using single-officer assignment (`primaryOfficerId` or first `officerIds` entry).
+- Assignment PATCH now returns explicit `400` validation errors for:
+  - empty update payloads,
+  - unsupported multi-worker assignment input (`officerIds.length > 1`),
+  - invalid/inactive/out-of-department officer selection.
+- Assignment route was aligned to the currently generated Prisma client (no `assignedWorkers` include/update and no `complaintAssignment` delegate usage in this route).
 
 ### 4. Authentication / Clerk
-- Clerk is wired into `app/layout.tsx` via `ClerkProvider` and header components (`SignInButton`, `SignUpButton`, `UserButton`, `Show`).
-- An example authenticated API route exists at `app/api/secure-api-route/route.ts` and returns the current `userId` or `401` when unauthenticated.
-- Clerk configuration relies on the standard Next.js + Clerk environment variables (for example `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`) configured outside this repo.
+- Clerk is wired into `app/layout.tsx` via `ClerkProvider` and auth UI components.
+- `app/api/secure-api-route/route.ts` provides an authenticated sample route (`401` when unauthenticated).
+- Clerk environment variables are expected outside repo config.
 
 ### 5. Frontend State
-- `app/page.tsx` renders a minimal CRM landing view (title and welcome text) but no data-driven dashboard yet.
-- `app/layout.tsx` sets basic CRM metadata and wraps the app in `ClerkProvider` with a simple auth header (sign-in/sign-up or user menu).
-- No CRM list/detail dashboard or user management UI has been implemented beyond this landing page.
+- `app/page.tsx` is still a minimal landing page.
+- No data-driven CRM dashboard UI has been implemented yet.
+
+### 6. Recent Database Sync Notes (Important)
+- Schema push previously failed due to live data constraints while enforcing required complaint fields.
+- Existing complaint rows were backfilled so `DEPARTMENT_NAME` is non-null and `departmentId` is valid.
+- `npx prisma db push` now succeeds without `--force-reset`.
 
 ## Current Known Gaps / Next Work
-- Build CRM UI pages (list users, create/edit user forms, dashboard layout).
-- Wire the CRM UI to `/api/users` endpoints.
-- Add richer page metadata and navigation once the CRM screens exist.
-- Extend Clerk-based authentication and authorization across pages and APIs (beyond the sample `secure-api-route`).
-- Add tests (API and integration), since test setup is not present yet.
+- Build CRM UI pages (users/workers/departments/complaints management views).
+- Add authorization rules by role across API routes (not just authentication checks).
+- Add tests (API and integration), since test setup is still minimal.
 - Add seed and migration workflow notes in README.
+- Replace placeholder response text in complaint create API and align response contract.
+- Ensure complaint creation consistently maps/validates `DEPARTMENT_NAME` and `departmentId` together.
+- If multi-worker complaint assignment is required, regenerate/apply Prisma schema-client alignment first, then restore worker-history writes in assignment APIs.
 
 ## Environment Variables Expected
 - `DATABASE_URL`
-- Clerk environment variables per the Clerk + Next.js integration (for example `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`).
+- Clerk environment variables per Next.js + Clerk integration (for example `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`).
 
 ## Conventions Already Used
 - API handlers return JSON with explicit error messages and status codes.
-- Validation is currently inline in route handlers (no shared validation library yet).
+- Validation is currently inline in route handlers using Zod.
 - User email values are normalized to lowercase before persistence.
-- Pagination limits for users endpoint are capped at 100.
+- Pagination limits are capped at 100 where applicable.
 
 ## Guidance For Future LLM Sessions
-- Treat `/api/users` and Prisma schema as established baseline behavior.
-- Prefer incremental changes that preserve existing API response shapes.
-- If introducing shared validation, keep current validation semantics and status codes compatible.
-- Before major refactors, verify compatibility with existing handlers in `app/api/users/`.
-- Use this file as the canonical high-level project log: after each significant change, update "What Has Already Been Implemented" and "Current Known Gaps / Next Work" instead of creating new docs.
-- When a gap from "Current Known Gaps / Next Work" is addressed, move or summarize it under "What Has Already Been Implemented" so future sessions can reconstruct the current state.
+- Treat existing `/api/users`, `/api/worker`, `/api/department`, and `/api/complaint` behavior as current baseline.
+- Prefer incremental changes that preserve existing response shapes unless explicitly requested.
+- When changing Prisma-required fields on non-empty tables, plan a data backfill before enforcing NOT NULL/FK constraints.
+- Before major refactors, verify compatibility with existing handlers in `app/api/**`.
+- For `app/api/complaint/assign/[id]`, keep responses as `4xx` for validation/domain failures instead of bubbling avoidable assignment errors into `500`.
+- Keep this file as the canonical high-level project log and update it after significant changes.
