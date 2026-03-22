@@ -59,6 +59,13 @@ Last updated: 2026-03-22
 - `GET /api/complaint` lists complaints with pagination and citizen relation include.
 - `POST /api/complaint` validates payload with Zod and creates complaint records.
 - Complaint create route currently defaults `citizenId` to `cmmwnbwv200008goismex9hsg` when omitted.
+- `GET /api/complaint/assign/[id]` returns complaint assignment context and department-scoped active officers.
+- `PATCH /api/complaint/assign/[id]` updates assignment/status using single-officer assignment (`primaryOfficerId` or first `officerIds` entry).
+- Assignment PATCH now returns explicit `400` validation errors for:
+  - empty update payloads,
+  - unsupported multi-worker assignment input (`officerIds.length > 1`),
+  - invalid/inactive/out-of-department officer selection.
+- Assignment route was aligned to the currently generated Prisma client (no `assignedWorkers` include/update and no `complaintAssignment` delegate usage in this route).
 
 ### 4. Authentication / Clerk
 - Clerk is wired into `app/layout.tsx` via `ClerkProvider` and auth UI components.
@@ -81,6 +88,7 @@ Last updated: 2026-03-22
 - Add seed and migration workflow notes in README.
 - Replace placeholder response text in complaint create API and align response contract.
 - Ensure complaint creation consistently maps/validates `DEPARTMENT_NAME` and `departmentId` together.
+- If multi-worker complaint assignment is required, regenerate/apply Prisma schema-client alignment first, then restore worker-history writes in assignment APIs.
 
 ## Environment Variables Expected
 - `DATABASE_URL`
@@ -97,4 +105,5 @@ Last updated: 2026-03-22
 - Prefer incremental changes that preserve existing response shapes unless explicitly requested.
 - When changing Prisma-required fields on non-empty tables, plan a data backfill before enforcing NOT NULL/FK constraints.
 - Before major refactors, verify compatibility with existing handlers in `app/api/**`.
+- For `app/api/complaint/assign/[id]`, keep responses as `4xx` for validation/domain failures instead of bubbling avoidable assignment errors into `500`.
 - Keep this file as the canonical high-level project log and update it after significant changes.
