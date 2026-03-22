@@ -144,6 +144,14 @@ enum FeedbackTag {
   REOPEN_NEEDED
 }
 
+enum AssignmentOutcome {
+  REASSIGNED        // Moved to another officer
+  ESCALATED         // Escalated due to inaction/SLA breach
+  RESOLVED          // Officer resolved it
+  SELF_WITHDRAWN    // Officer requested removal
+  ADMIN_REMOVED     // Forcefully unassigned by admin
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model Department {
@@ -228,7 +236,10 @@ model Officer {
   updatedAt    DateTime      @updatedAt
 
   complaints   Complaint[]
+  workingOnComplaints Complaint[] @relation("ComplaintWorkers")
   leaves       OfficerLeave[]  // NEW: leave management
+
+  assignmentHistory ComplaintAssignment[] @relation("OfficerAssignmentHistory")
 
   @@index([departmentId])
   @@index([status])
@@ -281,6 +292,7 @@ model Complaint {
   // Assignment
   assignedOfficerId String?
   assignedOfficer   Officer?        @relation(fields: [assignedOfficerId], references: [id], onDelete: SetNull)
+  assignedWorkers   Officer[]       @relation("ComplaintWorkers")
   assignedAt        DateTime?       // NEW: when the officer was assigned
 
   // NEW: who resolved it (can be the officer user account)
@@ -315,6 +327,8 @@ model Complaint {
   aiCategory        AICategoryPrediction?
   feedbacks         Feedback[]      // FIX: proper back-relation
 
+  assignmentHistory ComplaintAssignment[]
+
   @@index([citizenId])
   @@index([assignedOfficerId])
   @@index([status])
@@ -323,6 +337,31 @@ model Complaint {
   @@index([slaBreached])
   @@index([createdAt])
   @@map("complaints")
+}
+
+model ComplaintAssignment {
+  id          String   @id @default(cuid())
+
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  officerId   String
+  officer     Officer   @relation("OfficerAssignmentHistory", fields: [officerId], references: [id], onDelete: Cascade)
+
+  assignedAt  DateTime  @default(now())   // When this officer was assigned
+  relievedAt  DateTime?                   // When they were removed / reassigned
+
+  outcome     AssignmentOutcome?          // Why they left this complaint
+  // e.g. REASSIGNED because no update in 48 hrs, ESCALATED due to SLA breach
+
+  performanceNote String?                 // Admin/manager note on why action was taken
+  // e.g. "No field visit in 3 days", "Citizen complained about officer attitude"
+
+  assignedBy  String?                     // User ID of admin/manager who made this assignment
+
+  @@index([complaintId])
+  @@index([officerId])
+  @@map("complaint_assignments")
 }
 
 model AICategoryPrediction {

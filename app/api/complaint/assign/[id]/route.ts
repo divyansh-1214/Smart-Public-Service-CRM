@@ -4,7 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
 const assignComplaintSchema = z.object({
-  officerId: z.string().cuid().optional(),
+  officerIds: z.array(z.string().cuid()).optional(), // Multiple workers
+  primaryOfficerId: z.string().cuid().optional(),   // Main officer
+  status: z.nativeEnum(ComplaintStatus).optional(),
 });
 
 export async function GET(
@@ -16,6 +18,17 @@ export async function GET(
 
     const complaint = await prisma.complaint.findUnique({
       where: { id },
+      include: {
+        assignedOfficer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            position: true,
+            status: true,
+          }
+        }
+      }
     });
 
     if (!complaint) {
@@ -28,16 +41,18 @@ export async function GET(
         { status: 400 }
       );
     }
-    console.log("Complaint departmentId:", complaint.departmentId);
-    const officers = await prisma.officer.findMany({
-      where: { departmentId: complaint.departmentId },
+
+    const availableOfficers = await prisma.officer.findMany({
+      where: { 
+        departmentId: complaint.departmentId,
+        status: OfficerStatus.ACTIVE 
+      },
       select: {
         id: true,
         name: true,
         email: true,
-        departmentId: true,
-        status: true,
         position: true,
+        status: true,
       },
       orderBy: { createdAt: "asc" },
     });
@@ -45,7 +60,7 @@ export async function GET(
     return NextResponse.json({
       data: {
         complaint,
-        officers,
+        availableOfficers,
       },
     });
   } catch (error) {
@@ -60,8 +75,9 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-
-    const parsed = assignComplaintSchema.safeParse(await request.json().catch(() => ({})));
+    const body = await request.json().catch(() => ({}));
+    const parsed = assignComplaintSchema.safeParse(body);
+    
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid request body", issues: parsed.error.flatten() },
@@ -69,87 +85,112 @@ export async function PATCH(
       );
     }
 
-    const complaint = await prisma.complaint.findUnique({
-      where: { id },
-    });
+    const { officerIds, primaryOfficerId, status } = parsed.data;
 
-    if (!complaint) {
-      return NextResponse.json({ error: "Complaint not found" }, { status: 404 });
-    }
-
-    if (!complaint.departmentId) {
+    if (status === undefined && primaryOfficerId === undefined && officerIds === undefined) {
       return NextResponse.json(
-        { error: "Complaint has no departmentId, so officers cannot be resolved" },
+        { error: "No fields provided to update" },
         { status: 400 }
       );
     }
-    console.log("Complaint departmentId:", complaint.departmentId);
-    let officers = null as {
-      id: string;
-      name: string;
-      email: string;
-      departmentId: string;
-      status: OfficerStatus;
-      position: import("@prisma/client").Position | null;
-    } | null;
 
-    if (parsed.data.officerId) {
-      officers = await prisma.officer.findFirst({
-        where: {
-          id: parsed.data.officerId,
-          departmentId: complaint.departmentId,
-          status: OfficerStatus.ACTIVE,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          departmentId: true,
-          status: true,
-          position: true,
-        },
-      });
-    } else {
-      officers = await prisma.officer.findFirst({
-        where: { departmentId: complaint.departmentId, status: OfficerStatus.ACTIVE },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          departmentId: true,
-          status: true,
-          position: true,
-        },
-        orderBy: { createdAt: "asc" },
-      });
-    }
-
-    if (!officers) {
+    if (officerIds && officerIds.length > 1) {
       return NextResponse.json(
-        { error: "No active officer available in this department" },
-        { status: 404 }
+        {
+          error:
+            "Multiple worker assignment is not supported by the current schema. Provide one primaryOfficerId or a single officerIds entry.",
+        },
+        { status: 400 }
       );
     }
 
-    const updatedComplaint = await prisma.complaint.update({
-      where: { id },
-      data: {
-        departmentId: complaint.departmentId,
-        assignedOfficerId: officers.id,
-        assignedAt: new Date(),
-        status: ComplaintStatus.ASSIGNED,
-      },
+    // 1. Fetch current complaint state
+    const currentComplaint = await prisma.complaint.findUnique({
+      where: { id }
+    });
+
+    if (!currentComplaint) {
+      return NextResponse.json({ error: "Complaint not found" }, { status: 404 });
+    }
+
+    const requestedPrimaryOfficerId = primaryOfficerId ?? officerIds?.[0] ?? null;
+
+    if (requestedPrimaryOfficerId) {
+      const officer = await prisma.officer.findFirst({
+        where: {
+          id: requestedPrimaryOfficerId,
+          departmentId: currentComplaint.departmentId,
+          status: OfficerStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+
+      if (!officer) {
+        return NextResponse.json(
+          {
+            error:
+              "Selected officer is invalid, inactive, or not part of this complaint's department",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 2. Perform updates in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const updateData: any = {};
+      
+      if (status) updateData.status = status;
+
+      if (requestedPrimaryOfficerId) {
+        updateData.assignedOfficer = { connect: { id: requestedPrimaryOfficerId } };
+        updateData.assignedAt = new Date();
+        if (!status && currentComplaint.status === ComplaintStatus.SUBMITTED) {
+          updateData.status = ComplaintStatus.ASSIGNED;
+        }
+      } else if (primaryOfficerId !== undefined || officerIds !== undefined) {
+        updateData.assignedOfficer = { disconnect: true };
+        updateData.assignedAt = null;
+      }
+
+      const updated = await tx.complaint.update({
+        where: { id },
+        data: updateData,
+        include: {
+          assignedOfficer: true
+        }
+      });
+
+      // 3. Create Audit Log
+      await tx.auditLog.create({
+        data: {
+          complaintId: id,
+          updatedBy: "system", // Replace with session user if available
+          action: "assignment_updated",
+          newValue: JSON.stringify({
+            officerIds,
+            primaryOfficerId: requestedPrimaryOfficerId,
+            status
+          }),
+          oldValue: JSON.stringify({
+            officerIds: currentComplaint.assignedOfficerId ? [currentComplaint.assignedOfficerId] : [],
+            primaryOfficerId: currentComplaint.assignedOfficerId,
+            status: currentComplaint.status
+          })
+        }
+      });
+
+      return updated;
     });
 
     return NextResponse.json({
-      data: {
-        complaint: updatedComplaint,
-        officers,
-      },
+      data: result,
+      message: "Assignment updated successfully"
     });
+
   } catch (error) {
     console.error("[PATCH /api/complaint/assign/[id]]", error);
-    return NextResponse.json({ error: "Failed to fetch complaint" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update assignment" }, { status: 500 });
   }
 }
 
