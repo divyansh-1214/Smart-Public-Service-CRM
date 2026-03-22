@@ -160,7 +160,7 @@ model Department {
   addressLine   String?
   city          String?
   pincode       String?
-
+  complaints Complaint[] 
   @@map("departments")
 }
 
@@ -258,7 +258,9 @@ model Complaint {
   category          ComplaintCategory
   title             String
   description       String
-
+  DEPARTMENT_NAME DepartmentName
+  departmentId     String         @default("") // NEW: store departmentId for easier querying, set on creation based on category
+  department     Department       @relation(fields: [departmentId], references: [id])
   // FIX: priority is now a typed enum instead of a raw Int
   priority          Priority        @default(MEDIUM)
 

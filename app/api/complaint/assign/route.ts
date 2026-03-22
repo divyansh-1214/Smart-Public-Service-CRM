@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-export async function POST(request: Request) {
+
+export async function GET() {
   try {
-    const data = await request.json();
-    console.log("Received complaint data:", data);
-    return NextResponse.json({ message: "Complaint assigned successfully!" });
+    return NextResponse.json(
+      {
+        message: "Use POST /api/complaint/assign/[id] to assign a complaint",
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error assigning complaint:", error);
     return NextResponse.json({ error: "Failed to assign complaint." }, { status: 500 });
