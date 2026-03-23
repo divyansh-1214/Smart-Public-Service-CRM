@@ -1,36 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CRM
 
-## Getting Started
+Citizen complaint management system built with Next.js App Router, Prisma, PostgreSQL (Neon), and Clerk authentication.
 
-First, run the development server:
+## Tech Stack
+
+- Next.js 16 (App Router)
+- React 19
+- TypeScript
+- Prisma 7 + PostgreSQL
+- Neon adapter (`@prisma/adapter-neon`)
+- Clerk (`@clerk/nextjs`)
+- Zod validation
+- LangChain-based department classification
+
+## Project Architecture
+
+- `app/`: App Router pages and API routes.
+- `app/page.tsx`: Citizen-facing CRM interface.
+- `app/admin/page.tsx`: Admin dashboard UI.
+- `app/api/**`: Backend endpoints grouped by domain.
+- `components/crm/`: Reusable CRM UI components.
+- `lib/`: Prisma client, escalation logic, and classifier agent.
+- `prisma/schema.prisma`: Complaint workflow database schema.
+- `app/api-integration/`: API Integration Studio UI, hooks, and guide.
+
+## Implemented API Surface
+
+- Base and health: `GET /api`, `GET /api/health`
+- Users: `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/[id]`, `GET/POST /api/users/sync`
+- Workers (officers): `GET/POST /api/worker`, `GET/PATCH/DELETE /api/worker/[id]`, `GET/POST /api/worker/sync`
+- Officer leave: `GET/POST /api/officer/leave`, `PATCH /api/officer/leave/[id]`
+- Departments: `GET/POST /api/department`, `GET/PATCH/DELETE /api/department/[id]`
+- Complaints: `GET/POST /api/complaint`, `GET/PATCH /api/complaint/resolve/[id]`
+- Assignment: `POST/PATCH /api/complaint/assign`, `GET/PATCH /api/complaint/assign/[id]`
+- Monitoring and workflow: `GET /api/dashboard/stats`, `GET/POST /api/cron/escalate`, `GET /api/audit-log`
+- Feedback and notifications: `GET/POST /api/feedback`, `GET /api/notifications`, `PATCH /api/notifications/[id]/read`
+- Agents: `GET/POST /api/agents`
+
+## Authentication and Authorization
+
+- Clerk is wired in `app/layout.tsx` and `middleware.ts`.
+- `middleware.ts` currently treats all `/api/**` routes as public.
+- Route-level access control is enforced selectively in handlers.
+- `GET /api/secure-api-route` demonstrates authenticated API access.
+
+## Database and Assignment Model
+
+- Complaint assignments are tracked in `complaint_assignments` (`ComplaintAssignment` model).
+- Assignment history supports `outcome`, `relievedAt`, `deadline`, and `assignedBy`.
+- Escalation job scans overdue assignments and reassigns complaints up officer hierarchy.
+
+## Environment Variables
+
+Required:
+
+- `DATABASE_URL`
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+
+Optional or feature-specific:
+
+- `CRON_SECRET` (required for protected cron trigger `POST /api/cron/escalate`)
+- `GOOGLE_PLACE_API_KEY` (used by LangChain classifier model config)
+
+## Local Development
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Configure environment variables in `.env`.
+
+3. Ensure Prisma schema is pushed to your database:
+
+```bash
+npx prisma db push
+```
+
+4. Start development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `http://localhost:3000` for citizen UI
+- `http://localhost:3000/admin` for admin dashboard
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Available Scripts
 
-## Learn More
+- `npm run dev` start local dev server
+- `npm run build` create production build
+- `npm run start` start production server
+- `npm run lint` run ESLint
 
-To learn more about Next.js, take a look at the following resources:
+## Current Gaps and Next Priorities
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Add role-based authorization across sensitive API routes.
+- Expand automated test coverage (API and integration).
+- Improve complaint resolve flow to consistently capture `resolvedById`.
+- Clarify or refactor `GET /api/complaint/resolve/[id]` semantics (currently returns unresolved records).
+- Complete business logic for `POST /api/agents`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Notes
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- For full implementation context and architectural decisions, see `AGENT.md`.

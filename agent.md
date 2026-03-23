@@ -1,12 +1,33 @@
 # CRM Project Agent Context
 
-Last updated: 2026-03-23
+Last updated: 2026-03-24
 
 ## Project Overview
 - Project type: Next.js App Router application (TypeScript)
 - Workspace root: `d:/work/dev/crm`
 - Package manager/scripts: npm (`dev`, `build`, `start`, `lint`)
-- Runtime stack: Next.js 16, React 19, Prisma 7, Neon/PostgreSQL (`@prisma/adapter-neon` + `@neondatabase/serverless`), Clerk authentication.
+- Runtime stack: Next.js 16, React 19, Prisma 7, Neon/PostgreSQL (`@prisma/adapter-neon`), Clerk authentication.
+
+## High-Level Architecture
+- **UI layer (`app/**`, `components/**`)**
+  - Citizen-facing CRM shell in `app/page.tsx` with tabs for dashboard/new grievance/history/map.
+  - Admin dashboard in `app/admin/page.tsx` with complaint/user operations.
+  - Reusable CRM components in `components/crm/*`.
+
+- **API layer (`app/api/**`)**
+  - 24 route handlers organized by domain (users, worker, department, complaint, assignment, escalation, audit, feedback, notifications, health, agents).
+  - JSON-first response contracts with pagination and explicit error payloads.
+
+- **Domain/services layer (`lib/**`)**
+  - `lib/prisma.ts` for singleton Prisma client.
+  - `lib/escalation.ts` for overdue assignment escalation logic.
+  - `lib/agents/classifier.ts` for department classification via LangChain tool/agent flow.
+
+- **Data layer (`prisma/schema.prisma`)**
+  - PostgreSQL schema with complaint lifecycle, assignment history, notification, feedback, and system config tables.
+
+- **Integration sandbox (`app/api-integration/**`)**
+  - API Integration Studio UI/components/hooks plus `USER_GUIDE.md`.
 
 ## What Has Already Been Implemented
 
@@ -31,6 +52,11 @@ Last updated: 2026-03-23
 
 ### 3. API Endpoints
 
+- **GET /api/dashboard/stats** — Returns real-time aggregation of complaint statistics
+  - Aggregates: `total`, `open`, `overdue`, `escalated`, `resolved` counts.
+  - Computes: 30-day trends (`+X.X%`, `-X.X%`) by comparing current period with previous 30-day window.
+  - Implementation: Uses parallel Prisma `count()` calls for performance.
+
 #### Base and Health
 - `GET /api` returns a simple hello message with optional `name` query string.
 - `GET /api/health` is implemented with a DB connectivity check (`SELECT 1`).
@@ -49,6 +75,24 @@ Last updated: 2026-03-23
 - `GET /api/worker/[id]`, `PATCH /api/worker/[id]`, and `DELETE /api/worker/[id]` are implemented.
 - `GET /api/worker/sync` and `POST /api/worker/sync` integrate Clerk identity with officer records.
 
+#### Officer Leave APIs
+- **GET /api/officer/leave** — List leave records
+  - Optional filters: `officerId`, `approved` (`true`/`false`), `upcoming` (`true` = `startDate >= today`)
+  - Pagination: `page`, `limit` (max 100)
+  - Response includes officer details (name, email, position, department)
+
+- **POST /api/officer/leave** — Submit a leave request
+  - Body: `officerId` (CUID), `startDate` (ISO date), `endDate` (ISO date), `reason` (optional, max 500)
+  - Validates officer exists; `endDate` must be ≥ `startDate`
+  - Blocks overlapping leaves for the same officer (returns `409` with conflicting leave details)
+  - New leaves always start as `approved: false`
+
+- **PATCH /api/officer/leave/[id]** — Update a leave record
+  - Body (all optional, at least one required): `approved` (boolean), `startDate`, `endDate`, `reason`
+  - Merges patch values over existing dates before validation
+  - Overlap check excludes the current record itself
+  - Returns `404` if not found, `409` if updated dates conflict with another leave
+
 #### Department APIs
 - `GET /api/department` lists departments with pagination/filtering.
 - `POST /api/department` creates departments with `DepartmentName` enum validation and location/address fields.
@@ -59,7 +103,14 @@ Last updated: 2026-03-23
 #### Complaint APIs
 - `GET /api/complaint` lists complaints with pagination and citizen relation include.
 - `POST /api/complaint` validates payload with Zod and creates complaint records.
-- Complaint create route currently defaults `citizenId` to `cmmwnbwv200008goismex9hsg` when omitted.
+- Complaint create route requires `citizenId` (CUID) and validates citizen existence/activity.
+- Complaint create route auto-classifies department from description and persists both `DEPARTMENT_NAME` and `departmentId`.
+
+#### Complaint Resolve APIs
+- **GET /api/complaint/resolve/[id]** — Returns unresolved complaints (`resolvedAt = null`) with assigned officer include.
+  - Note: the path includes `[id]` but the current GET implementation does not use the path param.
+- **PATCH /api/complaint/resolve/[id]** — Marks a complaint as resolved (`status = RESOLVED`, `resolvedAt = now()`).
+  - Current implementation does not set `resolvedById`.
 
 #### Complaint Assignment APIs
 - **POST /api/complaint/assign** — Create new complaint assignment
@@ -82,14 +133,55 @@ Last updated: 2026-03-23
 - **PATCH /api/complaint/assign/[id]** — Legacy single-officer assignment update (replaced by new PATCH /api/complaint/assign)
   - Updates assignment/status using primary officer selection
 
+#### Audit Log APIs
+- **GET /api/audit-log** — Fetch chronological audit trail for a complaint
+  - Required: `complaintId` query param (CUID)
+  - Optional filters: `updatedBy` (actor ID or `"system"`), `action` (e.g. `"assigned"`, `"escalated"`)
+  - Pagination: `page`, `limit` (default 50, max 200)
+  - Ordered `createdAt ASC` (oldest-first) for timeline rendering
+  - `meta` includes `complaint` summary (`id`, `title`, `status`) for UI context
+
+#### Notification APIs
+- **GET /api/notifications** — List notifications for a user
+  - Required query param: `userId` (CUID)
+  - Optional filters: `unreadOnly` (`true`/`false`), `type` (NotificationType enum)
+  - Pagination: `page` (default 1), `limit` (default 20, max 100)
+  - Response includes `meta.unreadCount` (total unread for the user) for bell badge display
+  - Ordered by `createdAt DESC`
+
+- **PATCH /api/notifications/[id]/read** — Mark a single notification as read
+  - Path param: `id` (notification CUID)
+  - Sets `isRead = true` and `readAt = now()`
+  - Idempotent — already-read notifications return current state
+  - Returns `404` if notification not found
+
+#### Feedback APIs
+- **GET /api/feedback** — Retrieve feedback for a complaint
+  - Required: `complaintId` query param (CUID)
+  - Optional: `userId` (filter to one user's feedback), `page`, `limit`
+  - Response includes `meta.averageRating` and `meta.totalFeedbacks` for the complaint
+  - Anonymous submissions have `userId` and `user` fields stripped from the response
+
+- **POST /api/feedback** — Submit feedback for a complaint
+  - Body: `userId` (CUID), `complaintId` (CUID), `rating` (1–5 int), `comment` (optional, max 2000), `tags` (optional `FeedbackTag[]`), `isAnonymous` (optional, default `false`)
+  - Validates that user and complaint exist; user must be active
+  - Only allowed when complaint status is `RESOLVED` or `CLOSED` (returns `400` otherwise)
+  - One feedback per user per complaint enforced by DB unique constraint; returns `409` on duplicate
+  - Returns `201` with created feedback record
+
+#### Agents APIs
+- **GET /api/agents** — Basic health/test endpoint for agent flow.
+- **POST /api/agents** — Accepts payload (`name`, `description`) and currently logs/echoes receipt with error handling.
+
 ### 4. Authentication / Clerk
 - Clerk is wired into `app/layout.tsx` via `ClerkProvider` and auth UI components.
 - `app/api/secure-api-route/route.ts` provides an authenticated sample route (`401` when unauthenticated).
 - Clerk environment variables are expected outside repo config.
 
 ### 5. Frontend State
-- `app/page.tsx` is still a minimal landing page.
-- No data-driven CRM dashboard UI has been implemented yet.
+- `app/page.tsx` is a client-rendered CRM interface with Clerk user sync and tabbed views (dashboard/new/history/map).
+- `app/admin/page.tsx` is implemented with complaint and user management workflows.
+- Core CRM UI components exist in `components/crm/*` and are actively used.
 
 ### 6. Recent Database Sync Notes (Important)
 - Schema push previously failed due to live data constraints while enforcing required complaint fields.
@@ -108,13 +200,14 @@ Last updated: 2026-03-23
 - **`POST /api/cron/escalate`** — Manual trigger endpoint for the escalation check. Protected by `CRON_SECRET` env var via `x-cron-secret` header.
 
 ## Current Known Gaps / Next Work
-- Build CRM UI pages (users/workers/departments/complaints management views).
 - Add authorization rules by role across API routes (not just authentication checks).
 - Add tests (API and integration), since test setup is still minimal.
 - Add seed and migration workflow notes in README.
 - Replace placeholder response text in complaint create API and align response contract.
-- Ensure complaint creation consistently maps/validates `DEPARTMENT_NAME` and `departmentId` together.
 - If multi-worker complaint assignment is required, regenerate/apply Prisma schema-client alignment first, then restore worker-history writes in assignment APIs.
+- Clarify/fix `/api/complaint/resolve/[id]` GET semantics (currently returns unresolved items and ignores path ID).
+- Populate `resolvedById` when resolving complaints for stronger auditability.
+- Complete `/api/agents` POST business logic beyond payload receipt.
 
 ## Environment Variables Expected
 - `DATABASE_URL`
@@ -139,3 +232,4 @@ Last updated: 2026-03-23
 - For assignment routes, keep responses as `4xx` for validation/domain failures instead of bubbling avoidable assignment errors into `500`.
 - Keep this file as the canonical high-level project log and update it after significant changes.
 - When adding to assign routes or modifying enum values, update both the schema.prisma and the local enum definition in route.ts.
+- Note that `middleware.ts` currently marks `/api/(.*)` as public; endpoint-level auth/authorization must be enforced inside route handlers.
