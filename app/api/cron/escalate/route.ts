@@ -9,6 +9,7 @@ import { runEscalationCheck } from "@/lib/escalation";
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log("[POST /api/cron/escalate] Triggered escalation check");
     // Simple secret-based protection
     const cronSecret = process.env.CRON_SECRET;
     if (cronSecret) {
