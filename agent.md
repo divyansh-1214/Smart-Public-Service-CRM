@@ -1,6 +1,6 @@
 # CRM Project Agent Context
 
-Last updated: 2026-03-22
+Last updated: 2026-03-23
 
 ## Project Overview
 - Project type: Next.js App Router application (TypeScript)
@@ -27,6 +27,7 @@ Last updated: 2026-03-22
 - Uses `@prisma/adapter-neon` (`PrismaNeonHttp`) with `@neondatabase/serverless`.
 - Requires `DATABASE_URL` environment variable and throws if it is missing.
 - Reuses client instance via `globalThis` in non-production to avoid multiple client creation.
+- **Constraint**: `AssignmentOutcome` enum is defined locally in `app/api/complaint/assign/route.ts` instead of being imported from `@prisma/client` to ensure it's available at runtime. Schema values: `REASSIGNED`, `ESCALATED`, `RESOLVED`, `SELF_WITHDRAWN`, `ADMIN_REMOVED`.
 
 ### 3. API Endpoints
 
@@ -59,13 +60,27 @@ Last updated: 2026-03-22
 - `GET /api/complaint` lists complaints with pagination and citizen relation include.
 - `POST /api/complaint` validates payload with Zod and creates complaint records.
 - Complaint create route currently defaults `citizenId` to `cmmwnbwv200008goismex9hsg` when omitted.
-- `GET /api/complaint/assign/[id]` returns complaint assignment context and department-scoped active officers.
-- `PATCH /api/complaint/assign/[id]` updates assignment/status using single-officer assignment (`primaryOfficerId` or first `officerIds` entry).
-- Assignment PATCH now returns explicit `400` validation errors for:
-  - empty update payloads,
-  - unsupported multi-worker assignment input (`officerIds.length > 1`),
-  - invalid/inactive/out-of-department officer selection.
-- Assignment route was aligned to the currently generated Prisma client (no `assignedWorkers` include/update and no `complaintAssignment` delegate usage in this route).
+
+#### Complaint Assignment APIs
+- **POST /api/complaint/assign** — Create new complaint assignment
+  - Input: `complaintId`, `officerId`, `assignedBy` (optional) from body or query params
+  - Validation: Zod CUID strings, complaint exists, officer exists, officer is ACTIVE, officer belongs to complaint's department
+  - Response: `201` with created assignment record, `400` for validation errors, `404` for missing records
+  - Implementation: Uses Prisma delegate if available (`complaintAssignment?.create`), falls back to raw SQL INSERT/SELECT
+  - Default dates: `assignedAt` = now, `deadline` = now + 7 days
+  
+- **PATCH /api/complaint/assign** — Update assignment outcome and performance note
+  - Input (body only): `assignmentId` (required), `outcome` (optional), `performanceNote` (optional)
+  - Validation: Must provide at least one field to update (outcome or performanceNote)
+  - AssignmentOutcome enum values: `REASSIGNED`, `ESCALATED`, `RESOLVED`, `SELF_WITHDRAWN`, `ADMIN_REMOVED`
+  - Response: `200` with updated assignment record, `400` for validation errors, `404` if assignment not found
+  - Implementation: Use raw SQL for both exist-check and conditional field updates (outcome and performanceNote separately)
+
+- **GET /api/complaint/assign/[id]** — Get assignment context and available officers
+  - Returns complaint assignment context and department-scoped active officers for assignment reassignment
+
+- **PATCH /api/complaint/assign/[id]** — Legacy single-officer assignment update (replaced by new PATCH /api/complaint/assign)
+  - Updates assignment/status using primary officer selection
 
 ### 4. Authentication / Clerk
 - Clerk is wired into `app/layout.tsx` via `ClerkProvider` and auth UI components.
@@ -80,6 +95,17 @@ Last updated: 2026-03-22
 - Schema push previously failed due to live data constraints while enforcing required complaint fields.
 - Existing complaint rows were backfilled so `DEPARTMENT_NAME` is non-null and `departmentId` is valid.
 - `npx prisma db push` now succeeds without `--force-reset`.
+
+### 7. Deadline Escalation (Cron Job)
+- **`lib/escalation.ts`** — Core escalation logic:
+  - Queries `complaint_assignments` for overdue entries (`deadline < NOW()`, `outcome IS NULL`, `relievedAt IS NULL`).
+  - Marks overdue assignment as `outcome = ESCALATED`, `relievedAt = NOW()`.
+  - Bumps complaint `escalationLevel` to the next level (capped at `LEVEL_5`).
+  - Finds a superior officer in the same department by position hierarchy: `JUNIOR → SENIOR → SUPERVISOR → MANAGER → DIRECTOR`.
+  - Creates a new `ComplaintAssignment` for the superior with a fresh 7-day deadline.
+  - Writes an `AuditLog` entry with trigger metadata.
+- **`instrumentation.ts`** — Next.js instrumentation hook that starts a `node-cron` job every 15 minutes on server startup (Node.js runtime only).
+- **`POST /api/cron/escalate`** — Manual trigger endpoint for the escalation check. Protected by `CRON_SECRET` env var via `x-cron-secret` header.
 
 ## Current Known Gaps / Next Work
 - Build CRM UI pages (users/workers/departments/complaints management views).
@@ -102,8 +128,14 @@ Last updated: 2026-03-22
 
 ## Guidance For Future LLM Sessions
 - Treat existing `/api/users`, `/api/worker`, `/api/department`, and `/api/complaint` behavior as current baseline.
+- The assignment creation and update flows are now fully implemented:
+  - POST /api/complaint/assign creates assignments with full validation pipeline
+  - PATCH /api/complaint/assign updates only outcome and performanceNote
+  - Both routes use raw SQL fallback for missing Prisma delegates
+  - AssignmentOutcome enum is defined locally in the route file (not imported from Prisma)
 - Prefer incremental changes that preserve existing response shapes unless explicitly requested.
 - When changing Prisma-required fields on non-empty tables, plan a data backfill before enforcing NOT NULL/FK constraints.
 - Before major refactors, verify compatibility with existing handlers in `app/api/**`.
-- For `app/api/complaint/assign/[id]`, keep responses as `4xx` for validation/domain failures instead of bubbling avoidable assignment errors into `500`.
+- For assignment routes, keep responses as `4xx` for validation/domain failures instead of bubbling avoidable assignment errors into `500`.
 - Keep this file as the canonical high-level project log and update it after significant changes.
+- When adding to assign routes or modifying enum values, update both the schema.prisma and the local enum definition in route.ts.

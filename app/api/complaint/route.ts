@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
 
         // Auto-classify department based on description
         const classifiedDeptNameStr = await classifyDepartmentWithAgent(payload.description);
+        console.log("Classified department name:", classifiedDeptNameStr);
         const classifiedDeptName = classifiedDeptNameStr.replace(/\s+/g, "_").toUpperCase() as DepartmentName;
 
         // Ensure department exists in the DB

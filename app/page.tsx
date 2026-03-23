@@ -32,7 +32,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "new" | "history" | "map">("dashboard");
   const [dbUser, setDbUser] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
+  
   useEffect(() => {
     if (!isLoaded || !user || syncedUserIdRef.current === user.id) {
       return;
