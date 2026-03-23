@@ -1,0 +1,8 @@
+{
+  "cron": [
+    {
+      "path": "/api/cron/escalate",
+      "schedule": "*/1 * * * *"
+    }
+  ]
+}
