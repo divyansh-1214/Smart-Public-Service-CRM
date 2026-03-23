@@ -96,6 +96,17 @@ Last updated: 2026-03-23
 - Existing complaint rows were backfilled so `DEPARTMENT_NAME` is non-null and `departmentId` is valid.
 - `npx prisma db push` now succeeds without `--force-reset`.
 
+### 7. Deadline Escalation (Cron Job)
+- **`lib/escalation.ts`** — Core escalation logic:
+  - Queries `complaint_assignments` for overdue entries (`deadline < NOW()`, `outcome IS NULL`, `relievedAt IS NULL`).
+  - Marks overdue assignment as `outcome = ESCALATED`, `relievedAt = NOW()`.
+  - Bumps complaint `escalationLevel` to the next level (capped at `LEVEL_5`).
+  - Finds a superior officer in the same department by position hierarchy: `JUNIOR → SENIOR → SUPERVISOR → MANAGER → DIRECTOR`.
+  - Creates a new `ComplaintAssignment` for the superior with a fresh 7-day deadline.
+  - Writes an `AuditLog` entry with trigger metadata.
+- **`instrumentation.ts`** — Next.js instrumentation hook that starts a `node-cron` job every 15 minutes on server startup (Node.js runtime only).
+- **`POST /api/cron/escalate`** — Manual trigger endpoint for the escalation check. Protected by `CRON_SECRET` env var via `x-cron-secret` header.
+
 ## Current Known Gaps / Next Work
 - Build CRM UI pages (users/workers/departments/complaints management views).
 - Add authorization rules by role across API routes (not just authentication checks).
