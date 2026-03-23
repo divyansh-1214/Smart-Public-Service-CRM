@@ -1,16 +1,14 @@
 "use client";
 
-import { 
-  BarChart3, 
-  TrendingUp, 
-  AlertTriangle, 
+import {  
   CheckCircle2, 
   Clock, 
   Activity, 
   Map as MapIcon,
   ShieldAlert,
-  Users
+  Loader2
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface StatsData {
   total: number;
@@ -18,49 +16,90 @@ interface StatsData {
   overdue: number;
   escalated: number;
   resolved: number;
+  trends: {
+    total: string;
+    open: string;
+    overdue: string;
+    resolved: string;
+  };
 }
 
-export default function DashboardStats({ stats }: { stats?: StatsData }) {
-  // Use mocked stats for now, or actual if provided
-  const data = stats || {
-    total: 1248,
-    open: 412,
-    overdue: 42,
-    escalated: 18,
-    resolved: 776,
-  };
+export default function DashboardStats() {
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        setLoading(true);
+        const response = await fetch("/api/dashboard/stats");
+        if (!response.ok) throw new Error("Failed to fetch dashboard stats");
+        const json = await response.json();
+        setStats(json.data);
+      } catch (err) {
+        console.error(err);
+        setError("Could not load real-time statistics.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 h-40 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 text-gray-200 animate-spin" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="bg-rose-50 border border-rose-100 p-6 rounded-2xl flex items-center gap-4 text-rose-700">
+        <ShieldAlert className="w-6 h-6" />
+        <p className="font-bold">{error || "Statistics are currently unavailable."}</p>
+      </div>
+    );
+  }
 
   const cards = [
     { 
       label: "Total Grievances", 
-      value: data.total, 
+      value: stats.total, 
       icon: Activity, 
       color: "bg-blue-600", 
-      trend: "+12.4%", 
+      trend: stats.trends.total, 
       description: "Overall submissions" 
     },
     { 
       label: "Open Tickets", 
-      value: data.open, 
+      value: stats.open, 
       icon: Clock, 
       color: "bg-amber-600", 
-      trend: "-4.2%", 
+      trend: stats.trends.open, 
       description: "Currently in progress" 
     },
     { 
       label: "SLA Overdue", 
-      value: data.overdue, 
+      value: stats.overdue, 
       icon: ShieldAlert, 
       color: "bg-rose-600", 
-      trend: "+2.1%", 
+      trend: stats.trends.overdue, 
       description: "Breached resolution time" 
     },
     { 
       label: "Resolved Cases", 
-      value: data.resolved, 
+      value: stats.resolved, 
       icon: CheckCircle2, 
       color: "bg-emerald-600", 
-      trend: "+8.9%", 
+      trend: stats.trends.resolved, 
       description: "Successfully closed" 
     },
   ];

@@ -31,6 +31,11 @@ Last updated: 2026-03-23
 
 ### 3. API Endpoints
 
+- **GET /api/dashboard/stats** — Returns real-time aggregation of complaint statistics
+  - Aggregates: `total`, `open`, `overdue`, `escalated`, `resolved` counts.
+  - Computes: 30-day trends (`+X.X%`, `-X.X%`) by comparing current period with previous 30-day window.
+  - Implementation: Uses parallel Prisma `count()` calls for performance.
+
 #### Base and Health
 - `GET /api` returns a simple hello message with optional `name` query string.
 - `GET /api/health` is implemented with a DB connectivity check (`SELECT 1`).
@@ -48,6 +53,24 @@ Last updated: 2026-03-23
 - `POST /api/worker` creates officers with validation and department existence check.
 - `GET /api/worker/[id]`, `PATCH /api/worker/[id]`, and `DELETE /api/worker/[id]` are implemented.
 - `GET /api/worker/sync` and `POST /api/worker/sync` integrate Clerk identity with officer records.
+
+#### Officer Leave APIs
+- **GET /api/officer/leave** — List leave records
+  - Optional filters: `officerId`, `approved` (`true`/`false`), `upcoming` (`true` = `startDate >= today`)
+  - Pagination: `page`, `limit` (max 100)
+  - Response includes officer details (name, email, position, department)
+
+- **POST /api/officer/leave** — Submit a leave request
+  - Body: `officerId` (CUID), `startDate` (ISO date), `endDate` (ISO date), `reason` (optional, max 500)
+  - Validates officer exists; `endDate` must be ≥ `startDate`
+  - Blocks overlapping leaves for the same officer (returns `409` with conflicting leave details)
+  - New leaves always start as `approved: false`
+
+- **PATCH /api/officer/leave/[id]** — Update a leave record
+  - Body (all optional, at least one required): `approved` (boolean), `startDate`, `endDate`, `reason`
+  - Merges patch values over existing dates before validation
+  - Overlap check excludes the current record itself
+  - Returns `404` if not found, `409` if updated dates conflict with another leave
 
 #### Department APIs
 - `GET /api/department` lists departments with pagination/filtering.
@@ -81,6 +104,42 @@ Last updated: 2026-03-23
 
 - **PATCH /api/complaint/assign/[id]** — Legacy single-officer assignment update (replaced by new PATCH /api/complaint/assign)
   - Updates assignment/status using primary officer selection
+
+#### Audit Log APIs
+- **GET /api/audit-log** — Fetch chronological audit trail for a complaint
+  - Required: `complaintId` query param (CUID)
+  - Optional filters: `updatedBy` (actor ID or `"system"`), `action` (e.g. `"assigned"`, `"escalated"`)
+  - Pagination: `page`, `limit` (default 50, max 200)
+  - Ordered `createdAt ASC` (oldest-first) for timeline rendering
+  - `meta` includes `complaint` summary (`id`, `title`, `status`) for UI context
+
+#### Notification APIs
+- **GET /api/notifications** — List notifications for a user
+  - Required query param: `userId` (CUID)
+  - Optional filters: `unreadOnly` (`true`/`false`), `type` (NotificationType enum)
+  - Pagination: `page` (default 1), `limit` (default 20, max 100)
+  - Response includes `meta.unreadCount` (total unread for the user) for bell badge display
+  - Ordered by `createdAt DESC`
+
+- **PATCH /api/notifications/[id]/read** — Mark a single notification as read
+  - Path param: `id` (notification CUID)
+  - Sets `isRead = true` and `readAt = now()`
+  - Idempotent — already-read notifications return current state
+  - Returns `404` if notification not found
+
+#### Feedback APIs
+- **GET /api/feedback** — Retrieve feedback for a complaint
+  - Required: `complaintId` query param (CUID)
+  - Optional: `userId` (filter to one user's feedback), `page`, `limit`
+  - Response includes `meta.averageRating` and `meta.totalFeedbacks` for the complaint
+  - Anonymous submissions have `userId` and `user` fields stripped from the response
+
+- **POST /api/feedback** — Submit feedback for a complaint
+  - Body: `userId` (CUID), `complaintId` (CUID), `rating` (1–5 int), `comment` (optional, max 2000), `tags` (optional `FeedbackTag[]`), `isAnonymous` (optional, default `false`)
+  - Validates that user and complaint exist; user must be active
+  - Only allowed when complaint status is `RESOLVED` or `CLOSED` (returns `400` otherwise)
+  - One feedback per user per complaint enforced by DB unique constraint; returns `409` on duplicate
+  - Returns `201` with created feedback record
 
 ### 4. Authentication / Clerk
 - Clerk is wired into `app/layout.tsx` via `ClerkProvider` and auth UI components.
