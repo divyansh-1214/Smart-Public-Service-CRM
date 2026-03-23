@@ -17,6 +17,7 @@
     "@neondatabase/serverless": "^1.0.2",
     "@prisma/adapter-neon": "^7.5.0",
     "@prisma/client": "^7.5.0",
+    "@reduxjs/toolkit": "^2.11.2",
     "@types/prismjs": "^1.26.6",
     "@types/react-syntax-highlighter": "^15.5.13",
     "axios": "^1.13.6",
@@ -31,6 +32,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.72.0",
+    "react-redux": "^9.2.0",
     "react-syntax-highlighter": "^16.1.1",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"

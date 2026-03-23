@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from "next/server";
 import { ComplaintStatus, OfficerStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { ca } from "zod/v4/locales";
 
 const assignComplaintSchema = z.object({
   officerIds: z.array(z.string().cuid()).optional(), // Multiple workers
