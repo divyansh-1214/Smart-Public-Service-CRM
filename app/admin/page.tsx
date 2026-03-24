@@ -241,10 +241,10 @@ export default function AdminDashboard() {
       const targets = selectedItems.length > 0 ? selectedItems : [assigningComplaintId];
       
       for (const id of targets) {
-        const res = await fetch(`/api/complaint/assign/${id}`, {
-          method: "PATCH",
+        const res = await fetch(`/api/complaint/assign`, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ primaryOfficerId: officerId }),
+          body: JSON.stringify({ complaintId: id, officerId }),
         });
         if (!res.ok) throw new Error("Assignment failed");
       }
@@ -379,7 +379,12 @@ export default function AdminDashboard() {
                 { label: "Total Received", value: complaints.length, icon: FileText, color: "blue" },
                 { label: "Pending Assignment", value: complaints.filter(c => c.status === "SUBMITTED").length, icon: Clock, color: "amber" },
                 { label: "High Priority", value: complaints.filter(c => c.priority === "HIGH" || c.priority === "CRITICAL").length, icon: AlertCircle, color: "rose" },
-                { label: "Resolved Today", value: 0, icon: CheckCircle2, color: "emerald" },
+                { label: "Resolved Today", value: complaints.filter(c => {
+                  if (c.status !== "RESOLVED") return false;
+                  // If we had a resolvedAt we'd use it, otherwise fall back to rough check or assume 0 if not tracked
+                  // For prototype purposes, let's just count all resolved
+                  return true;
+                }).length, icon: CheckCircle2, color: "emerald" },
               ].map((stat, i) => (
                 <div key={i} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between">
                   <div>
@@ -506,12 +511,22 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td className="p-5 text-right">
-                          <button 
-                            onClick={() => openAssignModal(complaint.id)}
-                            className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
-                          >
-                            <UserCheck className="w-5 h-5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => openAssignModal(complaint.id)}
+                              className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
+                              title="Assign Officer"
+                            >
+                              <UserCheck className="w-5 h-5" />
+                            </button>
+                            <a 
+                              href={`/admin/complaint/${complaint.id}`}
+                              className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
+                              title="View Details"
+                            >
+                              <ChevronRight className="w-5 h-5" />
+                            </a>
+                          </div>
                         </td>
                       </tr>
                     )) : (

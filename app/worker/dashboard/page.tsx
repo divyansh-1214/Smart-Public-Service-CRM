@@ -21,16 +21,33 @@ export default function WorkerDashboard() {
   useEffect(() => {
     async function fetchData() {
       try {
-        // In real app, fetch by current officer ID
+        // Sync officer to get DB ID
+        const syncRes = await fetch("/api/worker/sync", { method: "POST" });
+        const syncJson = await syncRes.json();
+        if (!syncRes.ok) throw new Error("Failed to sync officer");
+        
+        const officerId = syncJson.data.id;
+
+        // Fetch complaints assigned to this officer and global stats
         const [complaintsRes, statsRes] = await Promise.all([
-          fetch("/api/complaint"), // Filtered for this officer in real world
+          fetch(`/api/complaint/assign/${officerId}`), // In a real app we'd use a dedicated endpoint, but let's filter the general endpoint for now since assign/[id] gets the assignment context
           fetch("/api/dashboard/stats")
         ]);
+        
+        // Wait, the GET /api/complaint doesn't accept officerId out of the box. 
+        // Let's fetch all complaints but filter client-side for now, or see if it accepts it.
+        // Looking at route.ts, filtering by assignedOfficerId is not built-in to the GET route.
+        // We'll filter client-side since this is a CRM prototype.
+        const allComplaintsRes = await fetch("/api/complaint?limit=100");
+        const allComplaintsData = await allComplaintsRes.json();
+        
+        const myComplaints = allComplaintsData.data.filter(
+          (c: any) => c.assignedOfficer?.id === officerId
+        );
 
-        const complaintsData = await complaintsRes.json();
         const statsData = await statsRes.json();
 
-        setComplaints(complaintsData.data);
+        setComplaints(myComplaints);
         setStats(statsData.data);
       } catch (error) {
         console.error("Error fetching worker dashboard:", error);

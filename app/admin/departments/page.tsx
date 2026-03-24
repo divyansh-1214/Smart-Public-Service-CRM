@@ -175,7 +175,21 @@ export default function DepartmentsAdminPage() {
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-all">
+                        <button 
+                          onClick={async () => {
+                            if (confirm("Are you sure you want to delete this department?")) {
+                              try {
+                                const res = await fetch(`/api/department/${dept.id}`, { method: "DELETE" });
+                                if (res.ok) fetchDepartments();
+                                else alert("Failed to delete department");
+                              } catch (err) {
+                                console.error(err);
+                                alert("Error deleting department");
+                              }
+                            }
+                          }}
+                          className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-all"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>

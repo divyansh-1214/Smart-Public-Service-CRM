@@ -32,6 +32,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "new" | "history" | "map">("dashboard");
   const [dbUser, setDbUser] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
   
   useEffect(() => {
     if (!isLoaded || !user || syncedUserIdRef.current === user.id) {
@@ -57,6 +58,17 @@ export default function Home() {
         }
 
         setDbUser(payload.data);
+
+        // Fetch notifications
+        try {
+          const notofRes = await fetch(`/api/notifications?userId=${payload.data.id}&unreadOnly=true`);
+          if (notofRes.ok) {
+            const notifJson = await notofRes.json();
+            setUnreadCount(notifJson.meta?.unreadCount || 0);
+          }
+        } catch (e) {
+          console.error("Failed to fetch notifications", e);
+        }
 
         if (payload.meta?.created) {
           setSyncMessage("Your PS-CRM account has been created.");
@@ -191,7 +203,7 @@ export default function Home() {
               className="p-2 hover:bg-gray-100 rounded-xl transition-all text-gray-500 relative"
             >
               <Bell className="w-6 h-6" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white" />
+              {unreadCount > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white" />}
             </a>
             <div className="relative hidden md:block">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -201,10 +213,6 @@ export default function Home() {
                 className="pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-medium w-64 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
-            <button className="relative p-2.5 bg-gray-50 rounded-xl text-gray-500 hover:bg-gray-100 transition-all">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white" />
-            </button>
             <div className="h-10 w-10 rounded-xl overflow-hidden shadow-lg border-2 border-white bg-blue-600 flex items-center justify-center">
               {user.imageUrl ? (
                 <img src={user.imageUrl} alt="Avatar" className="w-full h-full object-cover" />

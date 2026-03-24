@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { 
   ShieldCheck, 
@@ -15,6 +15,22 @@ import {
 import { FeedbackTag } from "@prisma/client";
 
 export default function FeedbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
+          <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center">
+            <p className="text-sm font-semibold text-gray-600">Loading feedback form...</p>
+          </div>
+        </div>
+      }
+    >
+      <FeedbackPageContent />
+    </Suspense>
+  );
+}
+
+function FeedbackPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const complaintId = searchParams.get("complaintId");
@@ -40,10 +56,21 @@ export default function FeedbackPage() {
     setError(null);
 
     try {
+      // Get DB user ID first
+      const syncRes = await fetch("/api/users/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const syncJson = await syncRes.json();
+      if (!syncRes.ok) throw new Error("Authentication synchronization failed");
+      
+      const userId = syncJson.data.id;
+
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          userId,
           complaintId,
           rating,
           comment,

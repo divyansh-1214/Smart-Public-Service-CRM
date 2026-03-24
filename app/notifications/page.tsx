@@ -22,8 +22,17 @@ export default function NotificationsPage() {
     if (isLoaded && user) {
       async function fetchNotifications() {
         try {
-          // Note: In real production, use the clerk internal ID or fetch by user email from your local DB.
-          const res = await fetch(`/api/notifications?userId=${user.id}`);
+          // Get DB user ID first
+          const syncRes = await fetch("/api/users/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          const syncJson = await syncRes.json();
+          if (!syncRes.ok) throw new Error("Failed to sync user");
+          
+          const dbUserId = syncJson.data.id;
+
+          const res = await fetch(`/api/notifications?userId=${dbUserId}`);
           const json = await res.json();
           setNotifications(json.data);
         } catch (error) {

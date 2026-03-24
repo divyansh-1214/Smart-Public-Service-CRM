@@ -221,10 +221,13 @@ export default function ComplaintTracker({ citizenId }: ComplaintTrackerProps) {
                     )}
                   </div>
 
-                  <button className="w-full mt-4 md:mt-0 flex items-center justify-center gap-2 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all">
+                  <a 
+                    href={`/complaint/${c.id}`}
+                    className="w-full mt-4 md:mt-0 flex items-center justify-center gap-2 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all"
+                  >
                     View Action History
                     <ChevronRight className="w-4 h-4" />
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>

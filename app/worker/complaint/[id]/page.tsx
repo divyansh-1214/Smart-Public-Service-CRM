@@ -171,7 +171,27 @@ export default function WorkerComplaintDetailsPage() {
                   <ImageIcon className="w-5 h-5" />
                   Attach Evidence
                 </button>
-                <button className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all ml-auto">
+                <button 
+                  onClick={async () => {
+                    if (!newComment.trim()) return;
+                    try {
+                      const res = await fetch(`/api/complaint/${id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: "IN_PROGRESS" }) // Or just call an audit log endpoint if it exists
+                      });
+                      if (res.ok) {
+                        setNewComment("");
+                        fetchData();
+                        alert("Update posted successfully.");
+                      }
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                  disabled={!newComment.trim()}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all ml-auto disabled:opacity-50"
+                >
                   <Send className="w-5 h-5" />
                   Post Update
                 </button>

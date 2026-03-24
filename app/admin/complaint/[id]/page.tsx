@@ -86,10 +86,10 @@ export default function AdminComplaintDetailsPage() {
   const handleAssign = async (officerId: string) => {
     setUpdating(true);
     try {
-      const res = await fetch(`/api/complaint/assign/${id}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/complaint/assign`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ primaryOfficerId: officerId }),
+        body: JSON.stringify({ complaintId: id, officerId }),
       });
       if (res.ok) {
         setIsAssignModalOpen(false);
@@ -252,17 +252,29 @@ export default function AdminComplaintDetailsPage() {
             {/* Quick Actions */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-4">
               <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Management Actions</h3>
-              <button className="w-full py-4 px-6 bg-gray-50 text-gray-700 rounded-2xl font-bold text-sm flex items-center justify-between hover:bg-gray-100 transition-all group">
+              <button 
+                onClick={() => alert("Escalation requires a higher-tier officer assignment.")}
+                disabled={updating}
+                className="w-full py-4 px-6 bg-gray-50 text-gray-700 rounded-2xl font-bold text-sm flex items-center justify-between hover:bg-gray-100 transition-all group disabled:opacity-50"
+              >
                 Escalate Case
                 <ChevronRight className="w-4 h-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
               </button>
-              <button className="w-full py-4 px-6 bg-gray-50 text-gray-700 rounded-2xl font-bold text-sm flex items-center justify-between hover:bg-gray-100 transition-all group">
+              <button className="w-full py-4 px-6 bg-gray-50 text-gray-700 rounded-2xl font-bold text-sm flex items-center justify-between hover:bg-gray-100 transition-all group disabled:opacity-50">
                 Mark as Internal
                 <ChevronRight className="w-4 h-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
               </button>
-              <button className="w-full py-4 px-6 bg-rose-50 text-rose-600 rounded-2xl font-bold text-sm flex items-center justify-between hover:bg-rose-600 hover:text-white transition-all group">
+              <button 
+                onClick={() => {
+                  if (confirm("Are you sure you want to reject this case?")) {
+                    updateStatus(ComplaintStatus.REJECTED);
+                  }
+                }}
+                disabled={updating}
+                className="w-full py-4 px-6 bg-rose-50 text-rose-600 rounded-2xl font-bold text-sm flex items-center justify-between hover:bg-rose-600 hover:text-white transition-all group disabled:opacity-50"
+              >
                 Reject Complaint
-                <AlertCircle className="w-4 h-4 opacity-50" />
+                <AlertCircle className="w-4 h-4 opacity-50 flex-shrink-0 group-hover:text-white" />
               </button>
             </div>
           </div>

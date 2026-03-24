@@ -28,16 +28,27 @@ export default function WorkerLeavePage() {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [dbOfficer, setDbOfficer] = useState<any>(null);
+
   useEffect(() => {
     if (isLoaded && user) {
-      fetchLeaves();
+      syncAndFetchLeaves();
     }
   }, [isLoaded, user]);
 
-  async function fetchLeaves() {
+  async function syncAndFetchLeaves() {
     try {
       setLoading(true);
-      const res = await fetch(`/api/officer/leave`);
+      // Get DB officer ID first
+      const syncRes = await fetch("/api/worker/sync", { method: "POST" });
+      const syncJson = await syncRes.json();
+      if (!syncRes.ok) throw new Error("Failed to sync officer");
+      
+      const officer = syncJson.data;
+      setDbOfficer(officer);
+
+      // Now fetch leaves specifically for this officer
+      const res = await fetch(`/api/officer/leave?officerId=${officer.id}`);
       const json = await res.json();
       setLeaves(json.data);
     } catch (error) {
@@ -49,6 +60,8 @@ export default function WorkerLeavePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!dbOfficer) return;
+    
     setSubmitting(true);
     try {
       const res = await fetch("/api/officer/leave", {
@@ -58,14 +71,14 @@ export default function WorkerLeavePage() {
           startDate: new Date(startDate).toISOString(), 
           endDate: new Date(endDate).toISOString(), 
           reason,
-          officerId: "placeholder-id" // In real app, this should be fetched from session or dbUser
+          officerId: dbOfficer.id
         }),
       });
 
       if (res.ok) {
         setIsModalOpen(false);
         resetForm();
-        fetchLeaves();
+        syncAndFetchLeaves();
       } else {
         const err = await res.json();
         alert(err.error || "Failed to submit leave request");
@@ -154,9 +167,20 @@ export default function WorkerLeavePage() {
             <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Leave Balance</h3>
             <div className="space-y-6">
               {[
-                { label: "Annual Leave", used: 12, total: 24, color: "bg-blue-600" },
-                { label: "Sick Leave", used: 2, total: 10, color: "bg-rose-600" },
-                { label: "Personal Days", used: 3, total: 5, color: "bg-emerald-600" },
+                { 
+                  label: "Annual Leave", 
+                  used: leaves.reduce((acc, l) => {
+                    if (l.approved) {
+                      const d = Math.ceil(Math.abs(new Date(l.endDate).getTime() - new Date(l.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                      return acc + d;
+                    }
+                    return acc;
+                  }, 0), 
+                  total: 24, 
+                  color: "bg-blue-600" 
+                },
+                { label: "Sick Leave", used: 0, total: 10, color: "bg-rose-600" }, // For prototype, assuming all current leaves are annual
+                { label: "Personal Days", used: 0, total: 5, color: "bg-emerald-600" },
               ].map((bal, i) => (
                 <div key={i} className="space-y-3">
                   <div className="flex justify-between items-center">
@@ -166,7 +190,7 @@ export default function WorkerLeavePage() {
                   <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
                     <div 
                       className={`h-full ${bal.color} transition-all duration-1000 ease-out`} 
-                      style={{ width: `${(bal.used / bal.total) * 100}%` }} 
+                      style={{ width: `${Math.min((bal.used / bal.total) * 100, 100)}%` }} 
                     />
                   </div>
                 </div>
