@@ -12,6 +12,7 @@ import {
   X
 } from "lucide-react";
 import { format } from "date-fns";
+import axios from "axios";
 
 export default function NotificationsPage() {
   const { user, isLoaded } = useUser();
@@ -23,18 +24,12 @@ export default function NotificationsPage() {
       async function fetchNotifications() {
         try {
           // Get DB user ID first
-          const syncRes = await fetch("/api/users/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          });
-          const syncJson = await syncRes.json();
-          if (!syncRes.ok) throw new Error("Failed to sync user");
+          const syncRes = await axios.post("/api/users/sync");
           
-          const dbUserId = syncJson.data.id;
+          const dbUserId = syncRes.data?.data?.id;
 
-          const res = await fetch(`/api/notifications?userId=${dbUserId}`);
-          const json = await res.json();
-          setNotifications(json.data);
+          const res = await axios.get(`/api/notifications?userId=${dbUserId}`);
+          setNotifications(res.data?.data ?? []);
         } catch (error) {
           console.error("Error fetching notifications:", error);
         } finally {
@@ -47,10 +42,8 @@ export default function NotificationsPage() {
 
   const markAsRead = async (id: string) => {
     try {
-      const res = await fetch(`/api/notifications/${id}/read`, { method: "PATCH" });
-      if (res.ok) {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-      }
+      await axios.patch(`/api/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
     } catch (error) {
       console.error("Error marking notification as read:", error);
     }

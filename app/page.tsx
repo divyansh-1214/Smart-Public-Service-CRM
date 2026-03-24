@@ -24,6 +24,7 @@ import GrievanceForm from "@/components/crm/GrievanceForm";
 import ComplaintTracker from "@/components/crm/ComplaintTracker";
 import DashboardStats from "@/components/crm/DashboardStats";
 import ComplaintMap from "@/components/crm/ComplaintMap";
+import axios from "axios";
 
 export default function Home() {
   const { user, isLoaded } = useUser();
@@ -43,29 +44,15 @@ export default function Home() {
 
     const syncUser = async () => {
       try {
-        const response = await fetch("/api/users/sync", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        const payload = await response.json();
-
-        if (!response.ok) {
-          setSyncMessage(payload.error ?? "Failed to sync account.");
-          return;
-        }
+        const response = await axios.post("/api/users/sync");
+        const payload = response.data;
 
         setDbUser(payload.data);
 
         // Fetch notifications
         try {
-          const notofRes = await fetch(`/api/notifications?userId=${payload.data.id}&unreadOnly=true`);
-          if (notofRes.ok) {
-            const notifJson = await notofRes.json();
-            setUnreadCount(notifJson.meta?.unreadCount || 0);
-          }
+          const notifRes = await axios.get(`/api/notifications?userId=${payload.data.id}&unreadOnly=true`);
+          setUnreadCount(notifRes.data?.meta?.unreadCount || 0);
         } catch (e) {
           console.error("Failed to fetch notifications", e);
         }

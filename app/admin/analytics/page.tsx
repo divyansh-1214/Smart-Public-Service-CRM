@@ -16,6 +16,7 @@ import {
   ChevronLeft
 } from "lucide-react";
 import { format, subDays } from "date-fns";
+import axios from "axios";
 
 export default function AnalyticsDashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -24,9 +25,8 @@ export default function AnalyticsDashboard() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch("/api/dashboard/stats");
-        const json = await res.json();
-        setStats(json.data);
+        const res = await axios.get("/api/dashboard/stats");
+        setStats(res.data?.data);
       } catch (error) {
         console.error("Error fetching analytics:", error);
       } finally {

@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   Loader2
 } from "lucide-react";
+import axios from "axios";
 
 export default function WorkerSyncPage() {
   const { user, isLoaded } = useUser();
@@ -24,14 +25,9 @@ export default function WorkerSyncPage() {
     setSyncing(true);
     setSyncStatus("idle");
     try {
-      const res = await fetch("/api/worker/sync", { method: "POST" });
-      const json = await res.json();
-      if (res.ok) {
-        setSyncStatus("success");
-        setDbOfficer(json.data);
-      } else {
-        setSyncStatus("error");
-      }
+      const res = await axios.post("/api/worker/sync");
+      setSyncStatus("success");
+      setDbOfficer(res.data?.data);
     } catch (error) {
       console.error("Error syncing worker:", error);
       setSyncStatus("error");

@@ -13,6 +13,7 @@ import {
   Send
 } from "lucide-react";
 import { FeedbackTag } from "@prisma/client";
+import axios from "axios";
 
 export default function FeedbackPage() {
   return (
@@ -57,32 +58,18 @@ function FeedbackPageContent() {
 
     try {
       // Get DB user ID first
-      const syncRes = await fetch("/api/users/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const syncJson = await syncRes.json();
-      if (!syncRes.ok) throw new Error("Authentication synchronization failed");
+      const syncRes = await axios.post("/api/users/sync");
       
-      const userId = syncJson.data.id;
+      const userId = syncRes.data?.data?.id;
 
-      const res = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          complaintId,
-          rating,
-          comment,
-          tags: selectedTags,
-          isAnonymous
-        }),
+      await axios.post("/api/feedback", {
+        userId,
+        complaintId,
+        rating,
+        comment,
+        tags: selectedTags,
+        isAnonymous
       });
-
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error || "Failed to submit feedback");
-      }
 
       setSuccess(true);
       setTimeout(() => router.push("/"), 2000);

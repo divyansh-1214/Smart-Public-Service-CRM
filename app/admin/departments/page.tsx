@@ -14,6 +14,7 @@ import {
   X,
   AlertCircle
 } from "lucide-react";
+import axios from "axios";
 
 export default function DepartmentsAdminPage() {
   const [departments, setDepartments] = useState<any[]>([]);
@@ -34,9 +35,8 @@ export default function DepartmentsAdminPage() {
   async function fetchDepartments() {
     try {
       setLoading(true);
-      const res = await fetch("/api/department");
-      const json = await res.json();
-      setDepartments(json.data);
+      const res = await axios.get("/api/department");
+      setDepartments(res.data?.data ?? []);
     } catch (error) {
       console.error("Error fetching departments:", error);
     } finally {
@@ -50,18 +50,16 @@ export default function DepartmentsAdminPage() {
     const url = editingDept ? `/api/department/${editingDept.id}` : "/api/department";
 
     try {
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, pincode }),
-      });
-
-      if (res.ok) {
-        setIsModalOpen(false);
-        setEditingDept(null);
-        resetForm();
-        fetchDepartments();
+      if (method === "PATCH") {
+        await axios.patch(url, { name, description, pincode });
+      } else {
+        await axios.post(url, { name, description, pincode });
       }
+
+      setIsModalOpen(false);
+      setEditingDept(null);
+      resetForm();
+      fetchDepartments();
     } catch (error) {
       console.error("Error saving department:", error);
     }
@@ -179,9 +177,8 @@ export default function DepartmentsAdminPage() {
                           onClick={async () => {
                             if (confirm("Are you sure you want to delete this department?")) {
                               try {
-                                const res = await fetch(`/api/department/${dept.id}`, { method: "DELETE" });
-                                if (res.ok) fetchDepartments();
-                                else alert("Failed to delete department");
+                                await axios.delete(`/api/department/${dept.id}`);
+                                fetchDepartments();
                               } catch (err) {
                                 console.error(err);
                                 alert("Error deleting department");

@@ -227,7 +227,7 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
                 </label>
                 <input
                   {...register("title")}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl border text-black border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   placeholder="Summarize the issue (e.g., Broken Streetlight near Central Park)"
                 />
                 {errors.title && <p className="mt-1 text-xs text-red-500">{errors.title.message}</p>}
@@ -239,7 +239,7 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
                 <textarea
                   {...register("description")}
                   rows={5}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+                  className="w-full px-4 py-3 rounded-xl border text-black border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
                   placeholder="Please provide as much detail as possible..."
                 />
                 {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description.message}</p>}
@@ -263,7 +263,7 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
                   <MapPin className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
                   <input
                     {...register("locationAddress")}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    className="w-full pl-12 pr-4 py-3 text-black rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                     placeholder="Enter full address or landmark"
                   />
                 </div>

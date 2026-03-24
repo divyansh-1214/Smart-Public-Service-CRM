@@ -32,6 +32,7 @@ import {
   X
 } from "lucide-react";
 import { format } from "date-fns";
+import axios from "axios";
 import { 
   ComplaintStatus, 
   Role, 
@@ -155,28 +156,18 @@ export default function AdminDashboard() {
           ...(searchTerm ? { search: searchTerm } : {}),
           ...(statusFilter !== "ALL" ? { status: statusFilter } : {}),
         });
-        const res = await fetch(`/api/complaint?${queryParams}`);
-        const json = await res.json();
-        if (res.ok) {
-          setComplaints(json.data);
-          setTotalPages(json.meta.totalPages);
-        } else {
-          setError(json.error || "Failed to fetch complaints");
-        }
+        const res = await axios.get(`/api/complaint?${queryParams}`);
+        setComplaints(res.data?.data ?? []);
+        setTotalPages(res.data?.meta?.totalPages ?? 1);
       } else if (activeTab === "users") {
         const queryParams = new URLSearchParams({
           page: page.toString(),
           limit: "10",
           ...(searchTerm ? { search: searchTerm } : {}),
         });
-        const res = await fetch(`/api/users?${queryParams}`);
-        const json = await res.json();
-        if (res.ok) {
-          setUsers(json.data);
-          setTotalPages(json.meta.totalPages);
-        } else {
-          setError(json.error || "Failed to fetch users");
-        }
+        const res = await axios.get(`/api/users?${queryParams}`);
+        setUsers(res.data?.data ?? []);
+        setTotalPages(res.data?.meta?.totalPages ?? 1);
       }
     } catch (err) {
       setError("An unexpected error occurred");
@@ -224,11 +215,8 @@ export default function AdminDashboard() {
     setAssigningComplaintId(complaintId);
     setIsAssignModalOpen(true);
     try {
-      const res = await fetch(`/api/complaint/assign/${complaintId}`);
-      const json = await res.json();
-      if (res.ok) {
-        setAvailableOfficers(json.data.availableOfficers);
-      }
+      const res = await axios.get(`/api/complaint/assign/${complaintId}`);
+      setAvailableOfficers(res.data?.data?.availableOfficers ?? []);
     } catch (err) {
       console.error("Failed to fetch officers", err);
     }
@@ -241,12 +229,7 @@ export default function AdminDashboard() {
       const targets = selectedItems.length > 0 ? selectedItems : [assigningComplaintId];
       
       for (const id of targets) {
-        const res = await fetch(`/api/complaint/assign`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ complaintId: id, officerId }),
-        });
-        if (!res.ok) throw new Error("Assignment failed");
+        await axios.post(`/api/complaint/assign`, { complaintId: id, officerId });
       }
 
       setIsAssignModalOpen(false);
@@ -262,15 +245,9 @@ export default function AdminDashboard() {
 
   const handleUpdateUser = async (userId: string, data: Partial<UserData>) => {
     try {
-      const res = await fetch(`/api/users/${userId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        setEditingUser(null);
-        fetchData();
-      }
+      await axios.patch(`/api/users/${userId}`, data);
+      setEditingUser(null);
+      fetchData();
     } catch (err) {
       alert("Update failed");
     }

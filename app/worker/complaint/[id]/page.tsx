@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ComplaintStatus, Priority } from "@prisma/client";
+import axios from "axios";
 
 export default function WorkerComplaintDetailsPage() {
   const { id } = useParams();
@@ -41,15 +42,12 @@ export default function WorkerComplaintDetailsPage() {
     try {
       setLoading(true);
       const [complaintRes, auditRes] = await Promise.all([
-        fetch(`/api/complaint/${id}`),
-        fetch(`/api/audit-log?complaintId=${id}`)
+        axios.get(`/api/complaint/${id}`),
+        axios.get(`/api/audit-log?complaintId=${id}`)
       ]);
 
-      const complaintData = await complaintRes.json();
-      const auditData = await auditRes.json();
-
-      setComplaint(complaintData.data);
-      setAuditLogs(auditData.data);
+      setComplaint(complaintRes.data?.data);
+      setAuditLogs(auditRes.data?.data ?? []);
     } catch (error) {
       console.error("Error fetching complaint details:", error);
     } finally {
@@ -60,12 +58,8 @@ export default function WorkerComplaintDetailsPage() {
   const updateStatus = async (status: ComplaintStatus) => {
     setUpdating(true);
     try {
-      const res = await fetch(`/api/complaint/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) fetchData();
+      await axios.patch(`/api/complaint/${id}`, { status });
+      fetchData();
     } catch (error) {
       console.error("Error updating status:", error);
     } finally {
@@ -76,15 +70,9 @@ export default function WorkerComplaintDetailsPage() {
   const handleResolve = async () => {
     setUpdating(true);
     try {
-      const res = await fetch(`/api/complaint/resolve/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "RESOLVED" }),
-      });
-      if (res.ok) {
-        alert("Case marked as resolved!");
-        router.push("/worker/dashboard");
-      }
+      await axios.patch(`/api/complaint/resolve/${id}`, { status: "RESOLVED" });
+      alert("Case marked as resolved!");
+      router.push("/worker/dashboard");
     } catch (error) {
       console.error("Error resolving complaint:", error);
     } finally {
@@ -175,16 +163,10 @@ export default function WorkerComplaintDetailsPage() {
                   onClick={async () => {
                     if (!newComment.trim()) return;
                     try {
-                      const res = await fetch(`/api/complaint/${id}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: "IN_PROGRESS" }) // Or just call an audit log endpoint if it exists
-                      });
-                      if (res.ok) {
-                        setNewComment("");
-                        fetchData();
-                        alert("Update posted successfully.");
-                      }
+                      await axios.patch(`/api/complaint/${id}`, { status: "IN_PROGRESS" }); // Or just call an audit log endpoint if it exists
+                      setNewComment("");
+                      fetchData();
+                      alert("Update posted successfully.");
                     } catch (e) {
                       console.error(e);
                     }

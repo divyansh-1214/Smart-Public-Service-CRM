@@ -15,6 +15,7 @@ import {
   Trash2
 } from "lucide-react";
 import { format } from "date-fns";
+import axios from "axios";
 
 export default function WorkerLeavePage() {
   const { user, isLoaded } = useUser();
@@ -40,17 +41,14 @@ export default function WorkerLeavePage() {
     try {
       setLoading(true);
       // Get DB officer ID first
-      const syncRes = await fetch("/api/worker/sync", { method: "POST" });
-      const syncJson = await syncRes.json();
-      if (!syncRes.ok) throw new Error("Failed to sync officer");
+      const syncRes = await axios.post("/api/worker/sync");
       
-      const officer = syncJson.data;
+      const officer = syncRes.data?.data;
       setDbOfficer(officer);
 
       // Now fetch leaves specifically for this officer
-      const res = await fetch(`/api/officer/leave?officerId=${officer.id}`);
-      const json = await res.json();
-      setLeaves(json.data);
+      const res = await axios.get(`/api/officer/leave?officerId=${officer.id}`);
+      setLeaves(res.data?.data ?? []);
     } catch (error) {
       console.error("Error fetching leaves:", error);
     } finally {
@@ -64,25 +62,16 @@ export default function WorkerLeavePage() {
     
     setSubmitting(true);
     try {
-      const res = await fetch("/api/officer/leave", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          startDate: new Date(startDate).toISOString(), 
-          endDate: new Date(endDate).toISOString(), 
-          reason,
-          officerId: dbOfficer.id
-        }),
+      await axios.post("/api/officer/leave", {
+        startDate: new Date(startDate).toISOString(),
+        endDate: new Date(endDate).toISOString(),
+        reason,
+        officerId: dbOfficer.id
       });
 
-      if (res.ok) {
-        setIsModalOpen(false);
-        resetForm();
-        syncAndFetchLeaves();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Failed to submit leave request");
-      }
+      setIsModalOpen(false);
+      resetForm();
+      syncAndFetchLeaves();
     } catch (error) {
       console.error("Error submitting leave:", error);
     } finally {

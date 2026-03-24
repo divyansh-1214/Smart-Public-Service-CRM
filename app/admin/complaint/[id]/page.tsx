@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ComplaintStatus, Priority } from "@prisma/client";
+import axios from "axios";
 
 export default function AdminComplaintDetailsPage() {
   const { id } = useParams();
@@ -40,15 +41,12 @@ export default function AdminComplaintDetailsPage() {
     try {
       setLoading(true);
       const [complaintRes, auditRes] = await Promise.all([
-        fetch(`/api/complaint/${id}`),
-        fetch(`/api/audit-log?complaintId=${id}`)
+        axios.get(`/api/complaint/${id}`),
+        axios.get(`/api/audit-log`, { params: { complaintId: id } })
       ]);
 
-      const complaintData = await complaintRes.json();
-      const auditData = await auditRes.json();
-
-      setComplaint(complaintData.data);
-      setAuditLogs(auditData.data);
+      setComplaint(complaintRes.data?.data);
+      setAuditLogs(auditRes.data?.data ?? []);
     } catch (error) {
       console.error("Error fetching complaint details:", error);
     } finally {
@@ -59,12 +57,8 @@ export default function AdminComplaintDetailsPage() {
   const updateStatus = async (status: ComplaintStatus) => {
     setUpdating(true);
     try {
-      const res = await fetch(`/api/complaint/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) fetchData();
+      await axios.patch(`/api/complaint/${id}`, { status });
+      fetchData();
     } catch (error) {
       console.error("Error updating status:", error);
     } finally {
@@ -75,26 +69,19 @@ export default function AdminComplaintDetailsPage() {
   const openAssignModal = async () => {
     setIsAssignModalOpen(true);
     try {
-      const res = await fetch(`/api/complaint/assign/${id}`);
-      const json = await res.json();
-      setAvailableOfficers(json.data.availableOfficers);
+      const res = await axios.get(`/api/complaint/assign/${id}`);
+      setAvailableOfficers(res.data?.data?.availableOfficers ?? []);
     } catch (error) {
       console.error("Error fetching available officers:", error);
     }
-  };
+  }; 
 
   const handleAssign = async (officerId: string) => {
     setUpdating(true);
     try {
-      const res = await fetch(`/api/complaint/assign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ complaintId: id, officerId }),
-      });
-      if (res.ok) {
-        setIsAssignModalOpen(false);
-        fetchData();
-      }
+      await axios.post(`/api/complaint/assign`, { complaintId: id, officerId });
+      setIsAssignModalOpen(false);
+      fetchData();
     } catch (error) {
       console.error("Error assigning officer:", error);
     } finally {

@@ -15,6 +15,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { format } from "date-fns";
+import axios from "axios";
 
 export default function ComplaintDetailsPage() {
   const { id } = useParams();
@@ -26,15 +27,12 @@ export default function ComplaintDetailsPage() {
     async function fetchData() {
       try {
         const [complaintRes, auditRes] = await Promise.all([
-          fetch(`/api/complaint/${id}`),
-          fetch(`/api/audit-log?complaintId=${id}`)
+          axios.get(`/api/complaint/${id}`),
+          axios.get(`/api/audit-log?complaintId=${id}`)
         ]);
 
-        const complaintData = await complaintRes.json();
-        const auditData = await auditRes.json();
-
-        setComplaint(complaintData.data);
-        setAuditLogs(auditData.data);
+        setComplaint(complaintRes.data?.data);
+        setAuditLogs(auditRes.data?.data ?? []);
       } catch (error) {
         console.error("Error fetching complaint details:", error);
       } finally {
