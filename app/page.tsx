@@ -98,7 +98,13 @@ export default function Home() {
               href="/sign-in"
               className="block w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-100"
             >
-              Sign In to Dashboard
+              Sign In
+            </a>
+            <a 
+              href="/sign-up"
+              className="block w-full py-4 bg-white text-gray-900 border-2 border-gray-100 rounded-2xl font-bold hover:bg-gray-50 transition-all"
+            >
+              Register Account
             </a>
             <p className="text-xs text-gray-400 font-medium">
               Access grievance management, real-time tracking, and administrative controls.
@@ -180,6 +186,13 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-4">
+            <a 
+              href="/notifications"
+              className="p-2 hover:bg-gray-100 rounded-xl transition-all text-gray-500 relative"
+            >
+              <Bell className="w-6 h-6" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white" />
+            </a>
             <div className="relative hidden md:block">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input 
