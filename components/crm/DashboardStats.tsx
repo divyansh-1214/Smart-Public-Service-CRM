@@ -9,6 +9,7 @@ import {
   Loader2
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import axios from "axios";
 
 interface StatsData {
   total: number;
@@ -33,13 +34,17 @@ export default function DashboardStats() {
     async function fetchStats() {
       try {
         setLoading(true);
-        const response = await fetch("/api/dashboard/stats");
-        if (!response.ok) throw new Error("Failed to fetch dashboard stats");
-        const json = await response.json();
-        setStats(json.data);
+        const response = await axios.get("/api/dashboard/stats");
+        setStats(response.data.data);
       } catch (err) {
         console.error(err);
-        setError("Could not load real-time statistics.");
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.error ?? "Could not load real-time statistics.",
+          );
+        } else {
+          setError("Could not load real-time statistics.");
+        }
       } finally {
         setLoading(false);
       }

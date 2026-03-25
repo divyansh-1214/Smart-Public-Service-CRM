@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import axios from "axios";
 import { ComplaintCategory, Priority } from "@prisma/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -99,26 +100,20 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
     setIsSubmitting(true);
     setError(null);
     try {
-      const response = await fetch("/api/complaint", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const response = await axios.post("/api/complaint", {
           ...data,
           citizenId,
           locationLat: data.locationLat,
           locationLng: data.locationLng,
-        }),
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to submit grievance");
+      onSuccess(response.data.data);
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error ?? "Failed to submit grievance");
+      } else {
+        setError("Failed to submit grievance");
       }
-
-      onSuccess(result.data);
-    } catch (err: any) {
-      setError(err.message);
     } finally {
       setIsSubmitting(false);
     }

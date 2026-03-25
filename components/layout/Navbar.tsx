@@ -43,7 +43,7 @@ const Navbar = () => {
     { label: "Security", href: "/#security", showOnLanding: true },
     { label: "Dashboard", href: "/dashboard", showInApp: true },
     { label: "Admin", href: "/admin", showInApp: true },
-    { label: "Officer", href: "/worker/dashboard", showInApp: true },
+    { label: "Officer", href: "/worker", showInApp: true },
   ];
 
   const filteredLinks = navLinks.filter(link => {
