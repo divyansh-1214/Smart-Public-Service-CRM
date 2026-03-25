@@ -4,7 +4,6 @@ import axios from "axios";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, LogOut, Mail, ShieldCheck } from "lucide-react";
-
 type WorkerSessionData = {
   officerId: string;
   email: string;
@@ -32,7 +31,6 @@ export default function WorkerHomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingComplaints, setIsFetchingComplaints] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const fetchAssignedComplaints = async (officerId: string) => {
     setIsFetchingComplaints(true);
     try {
