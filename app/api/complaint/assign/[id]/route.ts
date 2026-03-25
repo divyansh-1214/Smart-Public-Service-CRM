@@ -8,7 +8,7 @@ const assignComplaintSchema = z.object({
   primaryOfficerId: z.string().cuid().optional(), // Main officer
   status: z.nativeEnum(ComplaintStatus).optional(),
 });
-
+ 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -78,6 +78,8 @@ export async function GET(
   }
 }
 
+// this api is used to update the assigned officer(s) for a complaint, and optionally update the complaint status in the same request. 
+// It performs validation to ensure that the assigned officers are valid and belong to the same department as the complaint. It also logs assignment changes to an audit log for traceability.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -86,7 +88,6 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const parsed = assignComplaintSchema.safeParse(body);
-
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid request body", issues: parsed.error.flatten() },

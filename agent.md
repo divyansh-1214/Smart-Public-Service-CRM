@@ -1,6 +1,6 @@
 # CRM Project Agent Context
 
-Last updated: 2026-03-24
+Last updated: 2026-03-25
 
 ## Project Overview
 - Project type: Next.js App Router application (TypeScript)
@@ -199,6 +199,23 @@ Last updated: 2026-03-24
 - **`instrumentation.ts`** — Next.js instrumentation hook that starts a `node-cron` job every 15 minutes on server startup (Node.js runtime only).
 - **`POST /api/cron/escalate`** — Manual trigger endpoint for the escalation check. Protected by `CRON_SECRET` env var via `x-cron-secret` header.
 
+### 8. Frontend HTTP Client Standardization (Axios)
+- Page-level API calls in `app/**/page.tsx` were migrated from `fetch` to `axios` for consistency.
+- Migration completed across key citizen/admin/worker pages, including:
+  - `app/page.tsx`
+  - `app/admin/page.tsx`
+  - `app/admin/analytics/page.tsx`
+  - `app/admin/departments/page.tsx`
+  - `app/admin/complaint/[id]/page.tsx`
+  - `app/complaint/[id]/page.tsx`
+  - `app/feedback/page.tsx`
+  - `app/notifications/page.tsx`
+  - `app/worker/dashboard/page.tsx`
+  - `app/worker/complaint/[id]/page.tsx`
+  - `app/worker/leave/page.tsx`
+  - `app/worker/sync/page.tsx`
+- Existing response envelope usage remains unchanged (`{ data, meta }`), now accessed through axios response objects.
+
 ## Current Known Gaps / Next Work
 - Add authorization rules by role across API routes (not just authentication checks).
 - Add tests (API and integration), since test setup is still minimal.
@@ -218,6 +235,7 @@ Last updated: 2026-03-24
 - Validation is currently inline in route handlers using Zod.
 - User email values are normalized to lowercase before persistence.
 - Pagination limits are capped at 100 where applicable.
+- UI pages prefer `axios` for HTTP calls; use `response.data` / `response.data.data` according to route envelope.
 
 ## Guidance For Future LLM Sessions
 - Treat existing `/api/users`, `/api/worker`, `/api/department`, and `/api/complaint` behavior as current baseline.
@@ -227,6 +245,7 @@ Last updated: 2026-03-24
   - Both routes use raw SQL fallback for missing Prisma delegates
   - AssignmentOutcome enum is defined locally in the route file (not imported from Prisma)
 - Prefer incremental changes that preserve existing response shapes unless explicitly requested.
+- When editing page-level data fetching/mutations in `app/**/page.tsx`, keep `axios` as the default client unless there is a specific reason not to.
 - When changing Prisma-required fields on non-empty tables, plan a data backfill before enforcing NOT NULL/FK constraints.
 - Before major refactors, verify compatibility with existing handlers in `app/api/**`.
 - For assignment routes, keep responses as `4xx` for validation/domain failures instead of bubbling avoidable assignment errors into `500`.

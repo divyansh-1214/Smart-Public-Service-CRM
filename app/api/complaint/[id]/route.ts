@@ -2,16 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { ComplaintStatus, Priority } from "@prisma/client";
+import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
 
 /**
  * GET /api/complaint/[id] — Fetch a single complaint by ID
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const workerSession = getWorkerSessionFromRequest(request);
 
     const complaint = await prisma.complaint.findUnique({
       where: { id },
@@ -38,6 +40,13 @@ export async function GET(
       return NextResponse.json(
         { error: "Complaint not found" },
         { status: 404 }
+      );
+    }
+
+    if (workerSession && complaint.assignedOfficerId !== workerSession.officerId) {
+      return NextResponse.json(
+        { error: "Not allowed to access this complaint" },
+        { status: 403 }
       );
     }
 
@@ -83,6 +92,14 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Complaint not found" },
         { status: 404 }
+      );
+    }
+
+    const workerSession = getWorkerSessionFromRequest(request);
+    if (workerSession && existing.assignedOfficerId !== workerSession.officerId) {
+      return NextResponse.json(
+        { error: "Not allowed to update this complaint" },
+        { status: 403 }
       );
     }
 

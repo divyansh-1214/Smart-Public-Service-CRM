@@ -80,6 +80,7 @@ export default function AdminComplaintDetailsPage() {
     setUpdating(true);
     try {
       await axios.post(`/api/complaint/assign`, { complaintId: id, officerId });
+      await axios.patch(`/api/complaint/assign/${id}`, { officerIds: [officerId], status: ComplaintStatus.ASSIGNED });
       setIsAssignModalOpen(false);
       fetchData();
     } catch (error) {

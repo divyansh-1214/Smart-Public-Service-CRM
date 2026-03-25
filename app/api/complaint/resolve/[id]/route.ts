@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ComplaintStatus } from "@prisma/client";
+import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
 
 // This route handles fetching unresolved complaints and marking a complaint as resolved.
 export async function GET(_request: Request) {
@@ -23,11 +24,34 @@ export async function GET(_request: Request) {
 }
 
 export async function PATCH(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
+    const workerSession = getWorkerSessionFromRequest(request);
+
+    if (workerSession) {
+      const complaint = await prisma.complaint.findUnique({
+        where: { id },
+        select: { id: true, assignedOfficerId: true },
+      });
+
+      if (!complaint) {
+        return NextResponse.json(
+          { error: "Complaint not found" },
+          { status: 404 },
+        );
+      }
+
+      if (complaint.assignedOfficerId !== workerSession.officerId) {
+        return NextResponse.json(
+          { error: "Not allowed to resolve this complaint" },
+          { status: 403 },
+        );
+      }
+    }
+
     const updatedComplaint = await prisma.complaint.update({
       where: { id },
       data: {

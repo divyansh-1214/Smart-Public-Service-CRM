@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { classifyDepartmentWithAgent } from "@/lib/agents/classifier";
 import { ComplaintCategory, DepartmentName, Priority } from "@prisma/client";
+import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
 
 // const DEFAULT_CITIZEN_ID = "cmmwnbwv200008goismex9hsg";
 
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
 
 
     const citizenId = searchParams.get("citizenId");
+    const assignedOfficerId = searchParams.get("assignedOfficerId");
     const page = Math.max(
       1,
       Number.parseInt(searchParams.get("page") ?? "1", 10),
@@ -58,10 +60,35 @@ export async function GET(request: NextRequest) {
       Math.max(1, Number.parseInt(searchParams.get("limit") ?? "20", 10)),
     );
     const skip = (page - 1) * limit;
-    const where = citizenId ? { citizenId } : {};
+    const workerSession = getWorkerSessionFromRequest(request);
+    const effectiveAssignedOfficerId = workerSession
+      ? workerSession.officerId
+      : assignedOfficerId;
+
+    if (assignedOfficerId && !workerSession) {
+      return NextResponse.json(
+        { error: "Worker authentication is required for assigned complaints" },
+        { status: 401 },
+      );
+    }
+
+    if (workerSession && assignedOfficerId && assignedOfficerId !== workerSession.officerId) {
+      return NextResponse.json(
+        { error: "You can only access complaints assigned to your worker account" },
+        { status: 403 },
+      );
+    }
+
+    const where = {
+      ...(citizenId ? { citizenId } : {}),
+      ...(effectiveAssignedOfficerId
+        ? { assignedOfficerId: effectiveAssignedOfficerId }
+        : {}),
+    };
 
     const [complaints, total] = await Promise.all([
       prisma.complaint.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },

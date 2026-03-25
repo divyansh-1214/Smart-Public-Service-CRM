@@ -41,6 +41,7 @@ export default function WorkerComplaintDetailsPage() {
   async function fetchData() {
     try {
       setLoading(true);
+      await axios.get("/api/worker/auth/session");
       const [complaintRes, auditRes] = await Promise.all([
         axios.get(`/api/complaint/${id}`),
         axios.get(`/api/audit-log?complaintId=${id}`)
@@ -50,6 +51,7 @@ export default function WorkerComplaintDetailsPage() {
       setAuditLogs(auditRes.data?.data ?? []);
     } catch (error) {
       console.error("Error fetching complaint details:", error);
+      router.replace("/worker");
     } finally {
       setLoading(false);
     }
@@ -72,7 +74,7 @@ export default function WorkerComplaintDetailsPage() {
     try {
       await axios.patch(`/api/complaint/resolve/${id}`, { status: "RESOLVED" });
       alert("Case marked as resolved!");
-      router.push("/worker/dashboard");
+      router.push("/worker");
     } catch (error) {
       console.error("Error resolving complaint:", error);
     } finally {
