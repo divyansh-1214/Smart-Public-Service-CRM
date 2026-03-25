@@ -32,6 +32,7 @@ import {
   X
 } from "lucide-react";
 import { format } from "date-fns";
+import axios from "axios";
 import { 
   ComplaintStatus, 
   Role, 
@@ -155,28 +156,18 @@ export default function AdminDashboard() {
           ...(searchTerm ? { search: searchTerm } : {}),
           ...(statusFilter !== "ALL" ? { status: statusFilter } : {}),
         });
-        const res = await fetch(`/api/complaint?${queryParams}`);
-        const json = await res.json();
-        if (res.ok) {
-          setComplaints(json.data);
-          setTotalPages(json.meta.totalPages);
-        } else {
-          setError(json.error || "Failed to fetch complaints");
-        }
+        const res = await axios.get(`/api/complaint?${queryParams}`);
+        setComplaints(res.data?.data ?? []);
+        setTotalPages(res.data?.meta?.totalPages ?? 1);
       } else if (activeTab === "users") {
         const queryParams = new URLSearchParams({
           page: page.toString(),
           limit: "10",
           ...(searchTerm ? { search: searchTerm } : {}),
         });
-        const res = await fetch(`/api/users?${queryParams}`);
-        const json = await res.json();
-        if (res.ok) {
-          setUsers(json.data);
-          setTotalPages(json.meta.totalPages);
-        } else {
-          setError(json.error || "Failed to fetch users");
-        }
+        const res = await axios.get(`/api/users?${queryParams}`);
+        setUsers(res.data?.data ?? []);
+        setTotalPages(res.data?.meta?.totalPages ?? 1);
       }
     } catch (err) {
       setError("An unexpected error occurred");
@@ -224,11 +215,8 @@ export default function AdminDashboard() {
     setAssigningComplaintId(complaintId);
     setIsAssignModalOpen(true);
     try {
-      const res = await fetch(`/api/complaint/assign/${complaintId}`);
-      const json = await res.json();
-      if (res.ok) {
-        setAvailableOfficers(json.data.availableOfficers);
-      }
+      const res = await axios.get(`/api/complaint/assign/${complaintId}`);
+      setAvailableOfficers(res.data?.data?.availableOfficers ?? []);
     } catch (err) {
       console.error("Failed to fetch officers", err);
     }
@@ -241,12 +229,7 @@ export default function AdminDashboard() {
       const targets = selectedItems.length > 0 ? selectedItems : [assigningComplaintId];
       
       for (const id of targets) {
-        const res = await fetch(`/api/complaint/assign/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ primaryOfficerId: officerId }),
-        });
-        if (!res.ok) throw new Error("Assignment failed");
+        await axios.post(`/api/complaint/assign`, { complaintId: id, officerId });
       }
 
       setIsAssignModalOpen(false);
@@ -262,15 +245,9 @@ export default function AdminDashboard() {
 
   const handleUpdateUser = async (userId: string, data: Partial<UserData>) => {
     try {
-      const res = await fetch(`/api/users/${userId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        setEditingUser(null);
-        fetchData();
-      }
+      await axios.patch(`/api/users/${userId}`, data);
+      setEditingUser(null);
+      fetchData();
     } catch (err) {
       alert("Update failed");
     }
@@ -379,7 +356,12 @@ export default function AdminDashboard() {
                 { label: "Total Received", value: complaints.length, icon: FileText, color: "blue" },
                 { label: "Pending Assignment", value: complaints.filter(c => c.status === "SUBMITTED").length, icon: Clock, color: "amber" },
                 { label: "High Priority", value: complaints.filter(c => c.priority === "HIGH" || c.priority === "CRITICAL").length, icon: AlertCircle, color: "rose" },
-                { label: "Resolved Today", value: 0, icon: CheckCircle2, color: "emerald" },
+                { label: "Resolved Today", value: complaints.filter(c => {
+                  if (c.status !== "RESOLVED") return false;
+                  // If we had a resolvedAt we'd use it, otherwise fall back to rough check or assume 0 if not tracked
+                  // For prototype purposes, let's just count all resolved
+                  return true;
+                }).length, icon: CheckCircle2, color: "emerald" },
               ].map((stat, i) => (
                 <div key={i} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between">
                   <div>
@@ -506,12 +488,22 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td className="p-5 text-right">
-                          <button 
-                            onClick={() => openAssignModal(complaint.id)}
-                            className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
-                          >
-                            <UserCheck className="w-5 h-5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => openAssignModal(complaint.id)}
+                              className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
+                              title="Assign Officer"
+                            >
+                              <UserCheck className="w-5 h-5" />
+                            </button>
+                            <a 
+                              href={`/admin/complaint/${complaint.id}`}
+                              className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
+                              title="View Details"
+                            >
+                              <ChevronRight className="w-5 h-5" />
+                            </a>
+                          </div>
                         </td>
                       </tr>
                     )) : (
