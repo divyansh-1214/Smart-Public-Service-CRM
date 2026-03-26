@@ -21,6 +21,7 @@ import {
   validateFileCount,
   MAX_FILES_PER_UPLOAD,
 } from "@/lib/upload-validators";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /**
  * Normalized upload response for a single file
@@ -107,6 +108,17 @@ export async function POST(request: NextRequest) {
         },
         { status: 401 }
       );
+    }
+
+    const uploadRateLimitResponse = await enforceRateLimit(request, {
+      prefix: "api:upload:post",
+      limit: 10,
+      windowSec: 60,
+      identifier: userId ?? officerId,
+    });
+
+    if (uploadRateLimitResponse) {
+      return uploadRateLimitResponse;
     }
 
     // ─── Parse Multipart Form Data ───────────────────────────────────────
@@ -256,6 +268,17 @@ export async function DELETE(request: NextRequest) {
         { error: "Authentication required." },
         { status: 401 }
       );
+    }
+
+    const deleteRateLimitResponse = await enforceRateLimit(request, {
+      prefix: "api:upload:delete",
+      limit: 20,
+      windowSec: 60,
+      identifier: clerkUserId ?? workerSession?.officerId,
+    });
+
+    if (deleteRateLimitResponse) {
+      return deleteRateLimitResponse;
     }
 
     // Get publicId from query params

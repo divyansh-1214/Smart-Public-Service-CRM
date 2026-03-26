@@ -5,6 +5,9 @@ import { classifyDepartmentWithAgent } from "@/lib/agents/classifier";
 import { ComplaintCategory, DepartmentName, Priority } from "@prisma/client";
 import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
 import {decideDiscription} from "@/lib/agents/classifydep";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { getCache, setCache } from "@/lib/cache";
+import { buildRedisKey } from "@/lib/request-helpers";
 // const DEFAULT_CITIZEN_ID = "cmmwnbwv200008goismex9hsg";
 
 const COMPLAINT_CATEGORIES = Object.values(ComplaintCategory);
@@ -29,8 +32,57 @@ const createComplaintSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
+    const readRateLimitResponse = await enforceRateLimit(request, {
+      prefix: "api:complaint:get",
+      limit: 60,
+      windowSec: 60,
+    });
+
+    if (readRateLimitResponse) {
+      return readRateLimitResponse;
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    const citizenId = searchParams.get("citizenId");
+    const assignedOfficerId = searchParams.get("assignedOfficerId");
+    const page = Math.max(
+      1,
+      Number.parseInt(searchParams.get("page") ?? "1", 10),
+    );
+    const limit = Math.min(
+      100,
+      Math.max(1, Number.parseInt(searchParams.get("limit") ?? "20", 10)),
+    );
+    const workerSession = getWorkerSessionFromRequest(request);
+    const effectiveAssignedOfficerId = workerSession
+      ? workerSession.officerId
+      : assignedOfficerId;
+
+    const cacheKey = buildRedisKey(
+      "cache:complaint:get:v1",
+      id ?? "list",
+      citizenId,
+      effectiveAssignedOfficerId,
+      page,
+      limit,
+      workerSession?.officerId
+    );
+
+    const cachedResponse = await getCache<{ data: unknown; meta?: Record<string, unknown> }>(
+      cacheKey
+    );
+
+    if (cachedResponse) {
+      return NextResponse.json({
+        ...cachedResponse,
+        meta: {
+          ...(cachedResponse.meta ?? {}),
+          cache: "hit",
+        },
+      });
+    }
+
     // id is provided - fetch specific complaint
     if (id !== null) {
       const complaints = await prisma.complaint.findMany({
@@ -45,25 +97,18 @@ export async function GET(request: NextRequest) {
           },
         },
       });
-      return NextResponse.json({ data: complaints });
+      const responsePayload = {
+        data: complaints,
+        meta: {
+          cache: "miss",
+        },
+      };
+
+      await setCache(cacheKey, responsePayload, 30);
+
+      return NextResponse.json(responsePayload);
     }
-
-
-    const citizenId = searchParams.get("citizenId");
-    const assignedOfficerId = searchParams.get("assignedOfficerId");
-    const page = Math.max(
-      1,
-      Number.parseInt(searchParams.get("page") ?? "1", 10),
-    );
-    const limit = Math.min(
-      100,
-      Math.max(1, Number.parseInt(searchParams.get("limit") ?? "20", 10)),
-    );
     const skip = (page - 1) * limit;
-    const workerSession = getWorkerSessionFromRequest(request);
-    const effectiveAssignedOfficerId = workerSession
-      ? workerSession.officerId
-      : assignedOfficerId;
 
     if (assignedOfficerId && !workerSession) {
       return NextResponse.json(
@@ -117,15 +162,20 @@ export async function GET(request: NextRequest) {
       prisma.complaint.count({ where }),
     ]);
 
-    return NextResponse.json({
+    const responsePayload = {
       data: complaints,
       meta: {
         page,
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+        cache: "miss",
       },
-    });
+    };
+
+    await setCache(cacheKey, responsePayload, 20);
+
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error("[GET /api/complaint]", error);
     return NextResponse.json(
@@ -137,6 +187,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const writeRateLimitResponse = await enforceRateLimit(request, {
+      prefix: "api:complaint:post",
+      limit: 12,
+      windowSec: 60,
+    });
+
+    if (writeRateLimitResponse) {
+      return writeRateLimitResponse;
+    }
+
     const body = await request.json();
     const parsed = createComplaintSchema.safeParse(body);
     if (!parsed.success) {
