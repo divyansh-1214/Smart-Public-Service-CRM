@@ -20,7 +20,7 @@ import {
   MessageSquare,
   AlertCircle
 } from "lucide-react";
-import GrievanceForm from "@/components/crm/GrievanceForm";
+import QuickComplaintForm from "@/components/crm/QuickComplaintForm";
 import ComplaintTracker from "@/components/crm/ComplaintTracker";
 import DashboardStats from "@/components/crm/DashboardStats";
 import ComplaintMap from "@/components/crm/ComplaintMap";
@@ -299,14 +299,8 @@ export default function Home() {
             {/* New Grievance View */}
             {activeTab === "new" && (
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="mb-10 text-center">
-                  <h1 className="text-4xl font-black text-gray-900 tracking-tighter">Submit a Grievance</h1>
-                  <p className="text-gray-500 font-medium mt-2 max-w-xl mx-auto">
-                    Fill out the form below to report an issue. Your report will be automatically categorized and routed to the correct department.
-                  </p>
-                </div>
                 {dbUser && (
-                  <GrievanceForm 
+                  <QuickComplaintForm 
                     citizenId={dbUser.id} 
                     onSuccess={() => setActiveTab("history")} 
                   />

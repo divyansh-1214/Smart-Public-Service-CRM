@@ -18,6 +18,7 @@ import {
   Info,
   Loader2
 } from "lucide-react";
+import FileUploader from "./FileUploader";
 
 const complaintSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -238,6 +239,15 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
                   placeholder="Please provide as much detail as possible..."
                 />
                 {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description.message}</p>}
+              </div>
+              <div>
+                <FileUploader
+                  value={formData.photosUrls}
+                  onChange={(urls) => setValue("photosUrls", urls, { shouldValidate: true })}
+                  maxFiles={5}
+                  label="Attach Photos or Documents (Optional)"
+                  description="Upload photos, videos, or PDF evidence to support your complaint"
+                />
               </div>
             </motion.div>
           )}

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { classifyDepartmentWithAgent } from "@/lib/agents/classifier";
 import { ComplaintCategory, DepartmentName, Priority } from "@prisma/client";
 import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
-
+import {decideDiscription} from "@/lib/agents/classifydep";
 // const DEFAULT_CITIZEN_ID = "cmmwnbwv200008goismex9hsg";
 
 const COMPLAINT_CATEGORIES = Object.values(ComplaintCategory);
@@ -174,6 +174,8 @@ export async function POST(request: NextRequest) {
     const classifiedDeptNameStr = await classifyDepartmentWithAgent(
       payload.description,
     );
+    const title = await decideDiscription(payload.description);
+    payload.title = title;
     console.log("Classified department name:", classifiedDeptNameStr);
     const classifiedDeptName = classifiedDeptNameStr
       .replace(/\s+/g, "_")
