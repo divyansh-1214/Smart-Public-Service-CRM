@@ -1,4 +1,8 @@
-import CRMMap from "@/components/crm/CRMMap";
+"use client";
+
+import dynamic from "next/dynamic";
+
+const CRMMap = dynamic(() => import("@/components/crm/CRMMap"), { ssr: false });
 
 
 const leads = [
