@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { FeedbackTag } from "@prisma/client";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { getCache, setCache } from "@/lib/cache";
+import { buildRedisKey } from "@/lib/request-helpers";
 
 // ── Validation Schema ─────────────────────────────────────────────────────────
 
@@ -28,6 +31,16 @@ const createFeedbackSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
+    const readRateLimitResponse = await enforceRateLimit(request, {
+      prefix: "api:feedback:get",
+      limit: 45,
+      windowSec: 60,
+    });
+
+    if (readRateLimitResponse) {
+      return readRateLimitResponse;
+    }
+
     const { searchParams } = new URL(request.url);
 
     const complaintId = searchParams.get("complaintId");
@@ -49,6 +62,28 @@ export async function GET(request: NextRequest) {
       Math.max(1, Number.parseInt(searchParams.get("limit") ?? "20", 10)),
     );
     const skip = (page - 1) * limit;
+
+    const cacheKey = buildRedisKey(
+      "cache:feedback:get:v1",
+      complaintId,
+      userId,
+      page,
+      limit
+    );
+
+    const cachedResponse = await getCache<{ data: unknown; meta?: Record<string, unknown> }>(
+      cacheKey
+    );
+
+    if (cachedResponse) {
+      return NextResponse.json({
+        ...cachedResponse,
+        meta: {
+          ...(cachedResponse.meta ?? {}),
+          cache: "hit",
+        },
+      });
+    }
 
     // Ensure the complaint exists
     const complaint = await prisma.complaint.findUnique({
@@ -105,7 +140,7 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
     });
 
-    return NextResponse.json({
+    const responsePayload = {
       data: sanitized,
       meta: {
         page,
@@ -116,8 +151,13 @@ export async function GET(request: NextRequest) {
           ? Math.round(stats._avg.rating * 10) / 10
           : null,
         totalFeedbacks: stats._count.id,
+        cache: "miss",
       },
-    });
+    };
+
+    await setCache(cacheKey, responsePayload, 20);
+
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error("[GET /api/feedback]", error);
     return NextResponse.json(
@@ -139,6 +179,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const writeRateLimitResponse = await enforceRateLimit(request, {
+      prefix: "api:feedback:post",
+      limit: 10,
+      windowSec: 60,
+    });
+
+    if (writeRateLimitResponse) {
+      return writeRateLimitResponse;
+    }
+
     const body = await request.json();
     const parsed = createFeedbackSchema.safeParse(body);
 

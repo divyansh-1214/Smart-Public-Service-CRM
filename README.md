@@ -62,6 +62,56 @@ Optional or feature-specific:
 
 - `CRON_SECRET` (required for protected cron trigger `POST /api/cron/escalate`)
 - `GOOGLE_PLACE_API_KEY` (used by LangChain classifier model config)
+- `REDIS_URL` (required to enable Redis cache and rate limiting)
+- `REDIS_TOKEN` (required for Upstash REST auth)
+
+## Redis (Caching + Rate Limiting)
+
+This project supports Redis-powered caching and rate limiting in App Router route handlers.
+
+- Recommended on Vercel: Upstash Redis (`@upstash/redis`), because it is serverless-friendly.
+- Self-hosted Redis + `ioredis` can work, but Upstash is better aligned with Vercel serverless functions.
+
+### Setup
+
+1. Create an Upstash Redis database.
+2. Add environment variables:
+	 - `REDIS_URL`
+	 - `REDIS_TOKEN`
+3. Restart the app.
+
+### Included implementation
+
+- `lib/redis.ts` — Redis singleton (lazy init + graceful fallback)
+- `lib/cache.ts` — Reusable cache get/set helpers
+- `lib/rate-limit.ts` — Redis-backed rate limiter helper (`10 req/min` default)
+- `lib/request-helpers.ts` — Client IP extraction and Redis key builder
+
+### Working examples
+
+- Caching example: `GET /api/dashboard/stats`
+	- Cache key: `cache:dashboard:stats:v1`
+	- TTL: 60 seconds
+	- Response includes `meta.cache` as `"hit"` or `"miss"`
+
+- Rate limiting example: `/api/upload`
+	- `POST /api/upload`: 10 requests per 60 seconds
+	- `DELETE /api/upload`: 20 requests per 60 seconds
+	- On limit exceeded, returns `429` with `Retry-After` and `X-RateLimit-*` headers
+
+- Additional Redis-enabled APIs:
+	- `GET /api/complaint`: short TTL cache (20-30s depending on query) + read rate limit (60/min)
+	- `POST /api/complaint`: write rate limit (12/min)
+	- `GET /api/feedback`: short TTL cache (20s) + read rate limit (45/min)
+	- `POST /api/feedback`: write rate limit (10/min)
+	- `GET /api/notifications`: short TTL cache (15s) + read rate limit (60/min)
+
+### Graceful degradation
+
+If Redis is misconfigured or unavailable, the app does not crash:
+
+- Cache helpers skip reads/writes and route continues normally.
+- Rate limiter fails open (allows request) to preserve API availability.
 
 ## Local Development
 
