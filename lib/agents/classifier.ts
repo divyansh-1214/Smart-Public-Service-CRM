@@ -1,5 +1,6 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { createAgent, tool } from "langchain";
+import { ChatGroq } from "@langchain/groq"
 import * as z from "zod";
 
 const departments = [
@@ -192,6 +193,14 @@ const model = new ChatGoogleGenerativeAI({
   maxOutputTokens: 50,
 });
 
+
+const llm = new ChatGroq({
+    model: "llama-3.3-70b-versatile",
+    temperature: 0,
+    maxTokens: 50,
+    maxRetries: 2,
+    // other params...
+})
 function normalizeText(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -243,7 +252,11 @@ const agent = createAgent({
   tools: [selectDepartmentTool],
 });
 
-export async function classifyDepartmentWithAgent(description: string): Promise<string> {
+function extractDepartmentFromContent(content: string): string | null {
+  return departments.find((dept) => content.toUpperCase().includes(dept)) ?? null;
+}
+
+async function classifyWithGemini(description: string): Promise<string | null> {
   const result = await agent.invoke({
     messages: [
       {
@@ -261,8 +274,48 @@ export async function classifyDepartmentWithAgent(description: string): Promise<
       ? lastMessage.content
       : JSON.stringify(lastMessage?.content ?? "");
 
-  const match = departments.find((dept) => content.toUpperCase().includes(dept));
-  return match ?? decideDepartment(description);
+  return extractDepartmentFromContent(content);
+}
+
+async function classifyWithGroq(description: string): Promise<string | null> {
+  const response = await llm.invoke([
+    [
+      "system",
+      "You are a municipal complaint router. Return only one department name from the provided list.",
+    ],
+    [
+      "user",
+      `Departments: ${departments.join(", ")}. Complaint: "${description}". Return only the exact department name.`,
+    ],
+  ]);
+
+  const content = typeof response.content === "string"
+    ? response.content
+    : JSON.stringify(response.content ?? "");
+
+  return extractDepartmentFromContent(content);
+}
+
+export async function classifyDepartmentWithAgent(description: string): Promise<string> {
+  try {
+    const geminiDepartment = await classifyWithGemini(description);
+    if (geminiDepartment) {
+      return geminiDepartment;
+    }
+  } catch (error) {
+    console.warn("Gemini classification failed, trying Groq fallback", error);
+  }
+
+  try {
+    const groqDepartment = await classifyWithGroq(description);
+    if (groqDepartment) {
+      return groqDepartment;
+    }
+  } catch (error) {
+    console.warn("Groq fallback classification failed, using keyword fallback", error);
+  }
+
+  return decideDepartment(description);
 }
 
 export { departments, decideDepartment };

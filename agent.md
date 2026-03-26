@@ -105,9 +105,19 @@ Last updated: 2026-03-26
 
 #### Complaint APIs
 - `GET /api/complaint` lists complaints with pagination and citizen relation include.
+- `GET /api/complaint?mode=map` returns map-ready complaint markers with valid coordinates only.
+  - Map mode payload fields: `id`, `title`, `priority`, `status`, `ward`, `locationAddress`, `lat`, `lng`, `createdAt`.
+  - Optional status filters supported via `status` / `statuses` (comma-separated).
+  - Existing default list response shape remains unchanged for non-map calls.
 - `POST /api/complaint` validates payload with Zod and creates complaint records.
 - Complaint create route requires `citizenId` (CUID) and validates citizen existence/activity.
 - Complaint create route auto-classifies department from description and persists both `DEPARTMENT_NAME` and `departmentId`.
+
+#### Map Data APIs
+- **GET /api/wards** — Fetches and normalizes MCD ward/zone geometry from remote JS-wrapped GeoJSON sources.
+  - Sources: `https://webmap.mcd.gov.in/data/ward_3.js`, `https://webmap.mcd.gov.in/data/zone_4.js`.
+  - Returns normalized `wards` + `zones` FeatureCollections and centroid points (`centroids.wards`, `centroids.zones`).
+  - Includes cache headers for upstream payload stability and performance.
 
 #### Complaint Resolve APIs
 - **GET /api/complaint/resolve/[id]** — Returns unresolved complaints (`resolvedAt = null`) with assigned officer include.
@@ -201,6 +211,12 @@ Last updated: 2026-03-26
 - `app/page.tsx` (now `app/dashboard/page.tsx` in production) is a client-rendered CRM interface with Clerk user sync and tabbed views (dashboard/new/history/map).
 - `app/admin/page.tsx` is implemented with complaint and user management workflows.
 - Core CRM UI components exist in `components/crm/*` and are actively used:
+  - **`components/crm/CRMMap.tsx`** (UPDATED) — Leaflet map now supports:
+    - Ward and zone boundary layer rendering from `/api/wards`
+    - Ward/zone centroid rendering
+    - Complaint marker rendering from `/api/complaint?mode=map` (priority-based colors)
+    - Ward search and fit-to-bound behavior
+    - Graceful partial failure messaging if layers/complaints fail independently
   - **`components/crm/FileUploader.tsx`** (NEW) — Production-grade reusable file uploader with:
     - Drag-and-drop zone with hover states
     - File preview grid (image thumbnails + PDF icons)
@@ -321,8 +337,35 @@ Last updated: 2026-03-26
 - For Cloudinary integration: env vars are lazy-loaded, so builds work even before env is set; always call `ensureConfigured()` before using SDK operations.
 - File upload errors should be user-friendly and actionable (e.g., "File size exceeds 10MB limit" not "413 Payload Too Large").
 - When adding new complaint form variants, prefer QuickComplaintForm (auto-location, fast) unless category/priority selection is required.
+- AI reliability conventions:
+  - Department classification path: Gemini first, then Groq fallback, then deterministic keyword fallback.
+  - Complaint-title generation path: Gemini first, then Groq fallback, then deterministic text-derived fallback.
 
 ## Recent Changes (Session: 2026-03-26)
+
+### Map + AI Reliability Enhancements
+
+**Objective**: Improve operational map visibility and AI resiliency under provider failures.
+
+**Implementation**:
+1. **Complaint map overlay support**:
+  - Extended `GET /api/complaint` with `mode=map` for coordinate-valid complaint marker payloads.
+  - Added optional status filtering (`status` / `statuses`) in map mode.
+  - Preserved existing response behavior for non-map calls.
+
+2. **Ward/zone boundary ingestion**:
+  - Added `GET /api/wards` to ingest remote ward/zone JS datasets and normalize them into GeoJSON.
+  - Added centroid generation for ward and zone labeling support.
+
+3. **Leaflet map integration**:
+  - Updated `components/crm/CRMMap.tsx` to render boundaries, centroids, and complaint markers in one map canvas.
+  - Added priority-based complaint marker coloring and complaint context popups.
+
+4. **AI provider fallback hardening**:
+  - Updated `lib/agents/classifier.ts`: Gemini -> Groq -> keyword fallback.
+  - Updated `lib/agents/classifydep.ts`: Gemini -> Groq -> deterministic fallback title.
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
 
 ### Cloudinary Media Integration (Phases 1-2 Complete)
 

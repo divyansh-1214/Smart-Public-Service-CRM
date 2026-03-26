@@ -12,8 +12,9 @@
   "dependencies": {
     "@clerk/nextjs": "^7.0.5",
     "@hookform/resolvers": "^5.2.2",
-    "@langchain/core": "^1.1.34",
+    "@langchain/core": "^1.1.36",
     "@langchain/google-genai": "^2.1.26",
+    "@langchain/groq": "^1.1.5",
     "@langchain/langgraph": "^1.2.4",
     "@neondatabase/serverless": "^1.0.2",
     "@prisma/adapter-neon": "^7.5.0",
