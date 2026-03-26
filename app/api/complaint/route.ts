@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { classifyDepartmentWithAgent } from "@/lib/agents/classifier";
-import { ComplaintCategory, DepartmentName, Priority } from "@prisma/client";
+import { ComplaintCategory, ComplaintStatus, DepartmentName, Priority } from "@prisma/client";
 import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
 import {decideDiscription} from "@/lib/agents/classifydep";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -12,6 +12,7 @@ import { buildRedisKey } from "@/lib/request-helpers";
 
 const COMPLAINT_CATEGORIES = Object.values(ComplaintCategory);
 const PRIORITIES = Object.values(Priority);
+const COMPLAINT_STATUSES = Object.values(ComplaintStatus);
 
 const createComplaintSchema = z.object({
   citizenId: z.string().cuid(),
@@ -46,6 +47,17 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get("id");
     const citizenId = searchParams.get("citizenId");
     const assignedOfficerId = searchParams.get("assignedOfficerId");
+    const mode = searchParams.get("mode");
+    const mapMode = mode === "map";
+    const statusesParam = searchParams.get("statuses") ?? searchParams.get("status");
+    const statuses = statusesParam
+      ? statusesParam
+          .split(",")
+          .map((value) => value.trim().toUpperCase())
+          .filter((value): value is ComplaintStatus =>
+            COMPLAINT_STATUSES.includes(value as ComplaintStatus),
+          )
+      : [];
     const page = Math.max(
       1,
       Number.parseInt(searchParams.get("page") ?? "1", 10),
@@ -64,6 +76,8 @@ export async function GET(request: NextRequest) {
       id ?? "list",
       citizenId,
       effectiveAssignedOfficerId,
+      mapMode ? "map" : "default",
+      statuses.join("|"),
       page,
       limit,
       workerSession?.officerId
@@ -129,7 +143,59 @@ export async function GET(request: NextRequest) {
       ...(effectiveAssignedOfficerId
         ? { assignedOfficerId: effectiveAssignedOfficerId }
         : {}),
+      ...(statuses.length > 0 ? { status: { in: statuses } } : {}),
+      ...(mapMode
+        ? {
+            locationLat: { not: null },
+            locationLng: { not: null },
+          }
+        : {}),
     };
+
+    if (mapMode) {
+      const complaints = await prisma.complaint.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          priority: true,
+          status: true,
+          ward: true,
+          locationAddress: true,
+          locationLat: true,
+          locationLng: true,
+          createdAt: true,
+        },
+      });
+
+      const markers = complaints
+        .filter((item) => item.locationLat !== null && item.locationLng !== null)
+        .map((item) => ({
+          id: item.id,
+          title: item.title,
+          priority: item.priority,
+          status: item.status,
+          ward: item.ward,
+          locationAddress: item.locationAddress,
+          lat: item.locationLat as number,
+          lng: item.locationLng as number,
+          createdAt: item.createdAt,
+        }));
+
+      const responsePayload = {
+        data: markers,
+        meta: {
+          mode: "map",
+          total: markers.length,
+          cache: "miss",
+        },
+      };
+
+      await setCache(cacheKey, responsePayload, 20);
+
+      return NextResponse.json(responsePayload);
+    }
 
     const [complaints, total] = await Promise.all([
       prisma.complaint.findMany({

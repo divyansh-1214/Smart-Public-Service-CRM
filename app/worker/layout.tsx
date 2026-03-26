@@ -160,33 +160,8 @@ export default function WorkerLayout({ children }: { children: React.ReactNode }
                 {activeItem.label}
               </h2>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1.5">
-                Officer Portal • {user?.firstName || "Field Agent"}
+                Officer Portal •
               </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <div className="relative hidden lg:block">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-              <input 
-                type="text" 
-                placeholder="Search cases..." 
-                className="pl-14 pr-6 py-3.5 bg-slate-50 border-none rounded-2xl text-[11px] font-bold w-72 focus:ring-2 focus:ring-slate-200 outline-none transition-all placeholder:text-slate-300 placeholder:uppercase placeholder:tracking-widest"
-              />
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900 relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-3 right-3 w-2 h-2 bg-indigo-500 rounded-full border-2 border-white" />
-              </button>
-              <div className="h-12 w-12 rounded-2xl overflow-hidden shadow-2xl shadow-slate-200 border-2 border-white bg-slate-900 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 cursor-pointer">
-                {user?.imageUrl ? (
-                  <img src={user.imageUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-5 h-5 text-white" />
-                )}
-              </div>
             </div>
           </div>
         </header>

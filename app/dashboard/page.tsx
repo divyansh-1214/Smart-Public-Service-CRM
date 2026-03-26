@@ -237,32 +237,6 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4">
-            <a 
-              href="/notifications"
-              className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-500 relative"
-            >
-              <Bell className="w-5 h-5 md:w-6 md:h-6" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white animate-pulse" />
-              )}
-            </a>
-            <div className="relative hidden md:block">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Quick search..." 
-                className="pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium w-52 lg:w-64 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 outline-none transition-all"
-              />
-            </div>
-            <div className="h-9 w-9 md:h-10 md:w-10 rounded-xl overflow-hidden shadow-lg border-2 border-white bg-indigo-600 flex items-center justify-center shrink-0">
-              {user.imageUrl ? (
-                <img src={user.imageUrl} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-white font-black text-sm">{user.firstName?.[0] || "U"}</span>
-              )}
-            </div>
-          </div>
         </header>
 
         {/* Content Area */}

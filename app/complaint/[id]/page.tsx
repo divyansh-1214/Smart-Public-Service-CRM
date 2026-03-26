@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import axios from "axios";
-
+import Image from "next/image";
 export default function ComplaintDetailsPage() {
   const { id } = useParams();
   const [complaint, setComplaint] = useState<any>(null);
@@ -33,6 +33,7 @@ export default function ComplaintDetailsPage() {
 
         setComplaint(complaintRes.data?.data);
         setAuditLogs(auditRes.data?.data ?? []);
+        console.log("Fetched complaint details:", complaintRes.data?.data);
       } catch (error) {
         console.error("Error fetching complaint details:", error);
       } finally {
@@ -95,6 +96,24 @@ export default function ComplaintDetailsPage() {
             </h3>
             <p className="text-gray-600 leading-relaxed font-medium">{complaint.description}</p>
           </div>
+          {Array.isArray(complaint.photosUrls) && complaint.photosUrls.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4">
+              {complaint.photosUrls.map((url: string, index: number) => (
+                <div key={index} className="relative aspect-4/3 overflow-hidden rounded-2xl bg-gray-100">
+                  <Image
+                    src={url}
+                    alt={`Complaint Image ${index + 1}`}
+                    fill
+                    unoptimized
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-gray-500">No photos attached.</p>
+          )}
         </div>
 
         {/* Timeline / Audit Logs */}
