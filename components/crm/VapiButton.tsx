@@ -97,6 +97,7 @@ const VapiButton = () => {
             },
           ]);
         } else if (msg.type === "function-call") {
+          console.log("[Vapi] Function call:", msg.functionCall.name);
           setMessages((prev) => [
             ...prev,
             {
@@ -128,7 +129,10 @@ const VapiButton = () => {
           },
         ]);
       });
-    }).catch(err => console.error("Failed to load Vapi:", err));
+    }).catch(err => {
+      console.error("[Vapi] Failed to load SDK:", err);
+      setMessages((prev) => [...prev, { id: Date.now().toString(), role: "system", text: `SDK Load Error: ${err.message}` }]);
+    });
 
     return () => {
       if (vapiRef.current) {
