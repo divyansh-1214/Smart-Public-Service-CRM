@@ -200,6 +200,11 @@ Last updated: 2026-03-27
 
 #### Agents APIs
 - **GET /api/agents** — Basic health/test endpoint for agent flow.
+- **POST /api/agents** — Accepts payload (`name`, `description`) and currently logs/echoes receipt with error handling.
+- **POST /api/agents/transcribe** — Groq-powered speech-to-text endpoint for complaint voice input.
+  - Input: `multipart/form-data` with `audio` file and optional `language` (`auto` supported).
+  - Validation: Rejects empty payloads, unsupported MIME types, and files larger than 15MB.
+  - Output: Normalized transcription payload (`text`, `language`, `duration`, `model`).
 - **POST /api/agents** — Handles Vapi tool-call webhooks for voice assistant integration.
   - Processes `tool-calls` payload with `toolWithToolCallList` array.
   - Implemented tools: `checkComplaintStatus` (queries DB for complaint status), `createComplaint` (stub response for voice submissions).
@@ -232,6 +237,7 @@ Last updated: 2026-03-27
     - Props: `value` (URL[]), `onChange` (callback), `maxFiles`, `maxSizePerFile`, `acceptedTypes`, `label`, `description`
   - **`components/crm/QuickComplaintForm.tsx`** (NEW) — Streamlined single-page complaint submission with:
     - Description textarea (10-1000 chars, real-time counter)
+    - Voice-to-text mode (browser recording + Groq transcription + auto-fill description)
     - Auto-location detection via browser geolocation (shows lat/lng with refresh button)
     - Image upload integration via FileUploader (0-5 files)
     - Auto-submit to `/api/complaint` with success/error states
@@ -298,6 +304,8 @@ Last updated: 2026-03-27
   - `CLOUDINARY_API_KEY` (required for uploads)
   - `CLOUDINARY_API_SECRET` (required, server-side only, **never expose to browser**)
   - Optional: `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`, `CLOUDINARY_UPLOAD_FOLDER`
+- **Cron Jobs**: `CRON_SECRET` (for `/api/cron/escalate` endpoint protection)
+- **AI/Transcription**: `GROQ_API_KEY` (used for Gemini fallback and voice transcription endpoint)
 - **Vapi** (NEW):
   - `NEXT_PUBLIC_VAPI_PUBLIC_KEY` (required for voice assistant SDK)
   - `NEXT_PUBLIC_VAPI_ASSISTANT_ID` (required for voice assistant configuration)
@@ -352,6 +360,23 @@ Last updated: 2026-03-27
   - Complaint-title generation path: Gemini first, then Groq fallback, then deterministic text-derived fallback.
 
 ## Recent Changes (Session: 2026-03-26)
+
+### Voice-to-Text Complaint Mode
+
+**Objective**: Let citizens dictate complaints and auto-fill text fields through Groq speech-to-text.
+
+**Implementation**:
+1. **Groq transcription API**:
+  - Added `POST /api/agents/transcribe` for multipart audio transcription.
+  - Uses `whisper-large-v3-turbo` with auto-language handling and normalized JSON output.
+  - Added defensive validation for file size/type and provider error normalization.
+
+2. **Quick complaint voice UX**:
+  - Updated `components/crm/QuickComplaintForm.tsx` with in-browser recording controls (start/stop/clear).
+  - Added transcription action that sends recorded audio to `/api/agents/transcribe`.
+  - Auto-fills complaint description with returned transcript and preserves form validation behavior.
+
+**Build/Diagnostics Status**: ✅ Integrated in-session; ready for runtime test with `GROQ_API_KEY`.
 
 ### Map + AI Reliability Enhancements
 
