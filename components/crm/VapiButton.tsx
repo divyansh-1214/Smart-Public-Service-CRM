@@ -10,6 +10,39 @@ type Message = {
   text: string;
 };
 
+const readClientEnv = (value?: string) => (value ?? "").trim();
+
+const isPlaceholderValue = (value: string) =>
+  !value ||
+  value.includes("your_vapi_") ||
+  value.includes("placeholder") ||
+  value === "your_public_key" ||
+  value === "your_assistant_id";
+
+const parseVapiError = (error: unknown) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const e = (error ?? {}) as any;
+  const status = e?.statusCode ?? e?.status ?? e?.error?.status ?? "Unknown";
+  const code =
+    e?.code ??
+    e?.errorCode ??
+    e?.error?.code ??
+    e?.errorMsg ??
+    "Unknown";
+  const message =
+    e?.error?.message ??
+    e?.errorMsg ??
+    e?.message?.msg ??
+    e?.message ??
+    "Connection failed";
+
+  return {
+    status: String(status),
+    code: String(code),
+    message: String(message),
+  };
+};
+
 const VapiButton = () => {
   const [callStatus, setCallStatus] = useState<"inactive" | "loading" | "active">("inactive");
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -32,7 +65,7 @@ const VapiButton = () => {
     // Only import and instantiate on the client side
     import("@vapi-ai/web").then((VapiModule) => {
       const Vapi = VapiModule.default;
-      const pubKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
+      const pubKey = readClientEnv(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY);
       
       // Log environment for debugging
       console.log("[Vapi] SDK import successful. Public key present:", !!pubKey);
@@ -79,11 +112,22 @@ const VapiButton = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vapiInstance.on("error", (e: any) => {
         console.error("[Vapi] Detailed error:", e);
-        const errorCode = e.code || e.statusCode || e.errorMsg || "Unknown";
-        const errorMsg = e.errorMsg || e.message?.msg || e.message || "Connection failed";
-        console.error(`[Vapi] Error Code: ${errorCode}, Message: ${errorMsg}`);
+        const parsedError = parseVapiError(e);
+        console.error(
+          `[Vapi] Error Status: ${parsedError.status}, Code: ${parsedError.code}, Message: ${parsedError.message}`,
+        );
         setCallStatus("inactive");
-        setMessages((prev) => [...prev, { id: Date.now().toString(), role: "system", text: `Error: ${errorMsg} (Code: ${errorCode})` }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "system",
+            text:
+              parsedError.status === "400"
+                ? `Vapi rejected the request (400). Verify NEXT_PUBLIC_VAPI_PUBLIC_KEY and NEXT_PUBLIC_VAPI_ASSISTANT_ID are correct for this environment and redeploy. Message: ${parsedError.message}`
+                : `Error: ${parsedError.message} (Code: ${parsedError.code}, Status: ${parsedError.status})`,
+          },
+        ]);
       });
     }).catch(err => {
       console.error("[Vapi] Failed to load SDK:", err);
@@ -103,11 +147,20 @@ const VapiButton = () => {
   const toggleCall = async () => {
     if (!vapiRef.current) return;
 
-    const pubKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
-    const astId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID;
+    const pubKey = readClientEnv(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY);
+    const astId = readClientEnv(process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID);
 
-    if (!pubKey || pubKey === "your_vapi_public_key_here" || !astId || astId === "your_vapi_assistant_id_here") {
-      alert("Hold on! Next.js hasn't loaded your Vapi API keys yet.\n\nYou added them to .env, but you MUST completely stop the terminal server (Ctrl+C) and restart 'npm run dev' to load them!");
+    if (isPlaceholderValue(pubKey) || isPlaceholderValue(astId)) {
+      alert(
+        "Vapi config missing or placeholder. Set NEXT_PUBLIC_VAPI_PUBLIC_KEY and NEXT_PUBLIC_VAPI_ASSISTANT_ID, then redeploy (Vercel) or restart dev server.",
+      );
+      return;
+    }
+
+    if (pubKey.startsWith("sk_")) {
+      alert(
+        "You are using a secret key in NEXT_PUBLIC_VAPI_PUBLIC_KEY. Use the Vapi public web key only.",
+      );
       return;
     }
 
@@ -119,9 +172,21 @@ const VapiButton = () => {
       setIsChatOpen(true);
       try {
         await vapiRef.current.start(astId);
-      } catch (e) {
-        console.error("Error starting Vapi call:", e);
+      } catch (error) {
+        const parsedError = parseVapiError(error);
+        console.error("Error starting Vapi call:", error);
         setCallStatus("inactive");
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "system",
+            text:
+              parsedError.status === "400"
+                ? `Call start rejected (400). The assistant ID may be invalid for this public key or env vars were changed without redeploy. Message: ${parsedError.message}`
+                : `Failed to start call: ${parsedError.message}`,
+          },
+        ]);
       }
     }
   };
