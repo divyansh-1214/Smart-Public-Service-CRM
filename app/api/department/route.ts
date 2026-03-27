@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { DepartmentName } from "@prisma/client";
+import { DepartmentName, Role } from "@prisma/client";
 import { z } from "zod";
+import { requireRole } from "@/lib/auth-guard";
 
 const createDepartmentSchema = z.object({
   name: z.nativeEnum(DepartmentName),
@@ -80,6 +81,11 @@ export async function GET(request: NextRequest) {
 // POST /api/department — create a new department
 export async function POST(request: NextRequest) {
   try {
+    const authz = await requireRole([Role.ADMIN]);
+    if (!authz.ok) {
+      return authz.response;
+    }
+
     const parsed = createDepartmentSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(

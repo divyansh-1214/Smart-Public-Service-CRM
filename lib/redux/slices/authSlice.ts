@@ -22,6 +22,8 @@ export interface AuthState {
   user: AuthUser | null;
   role: UserRole | null;
   isAuthenticated: boolean;
+  officerId: string | null;       // For worker/officer session
+  departmentId: string | null;     // For worker/officer session
   loading: boolean;
   error: string | null;
 }
@@ -34,6 +36,8 @@ const initialState: AuthState = {
   user: null,
   role: null,
   isAuthenticated: false,
+  officerId: null,
+  departmentId: null,
   loading: false,
   error: null,
 };
@@ -59,6 +63,16 @@ const authSlice = createSlice({
       state.user = null;
       state.role = null;
       state.isAuthenticated = false;
+      state.officerId = null;
+      state.departmentId = null;
+      state.error = null;
+    },
+
+    /** Set worker/officer session (for worker login) */
+    setWorkerSession(state, action: PayloadAction<{ officerId: string; departmentId: string }>) {
+      state.officerId = action.payload.officerId;
+      state.departmentId = action.payload.departmentId;
+      state.isAuthenticated = true;
       state.error = null;
     },
 
@@ -82,7 +96,7 @@ const authSlice = createSlice({
 // Exports
 // ---------------------------------------------------------------------------
 
-export const { setUser, clearUser, setRole, setAuthLoading, setAuthError } =
+export const { setUser, clearUser, setRole, setAuthLoading, setAuthError, setWorkerSession } =
   authSlice.actions;
 
 // Selectors
@@ -90,5 +104,7 @@ export const selectAuthUser = (state: RootState) => state.auth.user;
 export const selectAuthRole = (state: RootState) => state.auth.role;
 export const selectIsAuthenticated = (state: RootState) =>
   state.auth.isAuthenticated;
+export const selectOfficerId = (state: RootState) => state.auth.officerId;
+export const selectDepartmentId = (state: RootState) => state.auth.departmentId;
 
 export default authSlice.reducer;

@@ -112,6 +112,8 @@ Last updated: 2026-03-27
 - `POST /api/complaint` validates payload with Zod and creates complaint records.
 - Complaint create route requires `citizenId` (CUID) and validates citizen existence/activity.
 - Complaint create route auto-classifies department from description and persists both `DEPARTMENT_NAME` and `departmentId`.
+- `PATCH /api/complaint/[id]` supports status/priority updates for non-resolved states.
+  - `RESOLVED` is intentionally blocked here and must use `PATCH /api/complaint/resolve/[id]`.
 
 #### Map Data APIs
 - **GET /api/wards** — Fetches and normalizes MCD ward/zone geometry from remote JS-wrapped GeoJSON sources.
@@ -207,7 +209,14 @@ Last updated: 2026-03-27
   - Output: Normalized transcription payload (`text`, `language`, `duration`, `model`).
 - **POST /api/agents** — Handles Vapi tool-call webhooks for voice assistant integration.
   - Processes `tool-calls` payload with `toolWithToolCallList` array.
-  - Implemented tools: `checkComplaintStatus` (queries DB for complaint status), `createComplaint` (stub response for voice submissions).
+  - Implemented tools:
+    - `checkComplaintStatus` (queries DB for complaint status)
+    - `createComplaint` (creates real complaint records in DB)
+      - Resolves citizen identity from `citizenId` OR `userEmail`/`email` tool args
+      - Falls back to Clerk signed-in user context when available
+      - Auto-creates DB user from Clerk profile if missing (best-effort)
+      - Auto-classifies department and auto-generates complaint title before insert
+      - Applies defaults for category/priority and stores optional location/media fields
   - Returns `{ results: [{ toolCallId, result }] }` array for Vapi callback.
   - Fallback for unimplemented tools with error message.
 
@@ -506,3 +515,65 @@ Last updated: 2026-03-27
 
 **Testing Status**: Ready for manual testing via Navbar voice button
 - Click "Voice AI" → Allow mic → Speak complaint inquiry → See live transcript and tool responses
+
+### Voice Agent Complaint Creation (DB + Clerk Mapping)
+
+**Objective**: Connect voice tool calls to real complaint creation with Clerk-linked user resolution.
+
+**Implementation**:
+1. **Agents route upgrade** (`app/api/agents/route.ts`):
+  - `createComplaint` tool now inserts complaint rows into Prisma DB (no longer stubbed).
+  - Parses tool-call arguments safely and returns per-tool actionable errors.
+
+2. **Citizen resolution flow**:
+  - Priority order: `citizenId` (DB ID) -> `userEmail` / `email` (tool args) -> Clerk auth context.
+  - If DB user by email is missing and Clerk context exists, creates Prisma `User` record automatically.
+
+3. **Complaint enrichment**:
+  - Department classification via `classifyDepartmentWithAgent()` with fallback handling.
+  - Title generation via `decideDiscription()` with deterministic fallback.
+  - Stores optional location, ward/pincode, tags, media arrays and attachment count.
+
+4. **Response behavior**:
+  - Returns tool result string including complaint ID, title, status, priority, and department.
+  - Uses no-store headers for all agent responses.
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
+
+### Worker Complaint Status Update Guardrails
+
+**Objective**: Allow worker-driven status progression while keeping resolution as an explicit dedicated action.
+
+**Implementation**:
+1. **Complaint PATCH API guard** (`app/api/complaint/[id]/route.ts`):
+  - Blocks `status = RESOLVED` in `PATCH /api/complaint/[id]` with `400` and guidance to use resolve endpoint.
+  - Keeps status/priority updates available for other states.
+
+2. **Worker complaint UI update** (`app/worker/complaint/[id]/page.tsx`):
+  - Status dropdown excludes `RESOLVED`.
+  - Resolution remains available via dedicated "Resolve Case" action (`/api/complaint/resolve/[id]`).
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
+
+### Complaint Notification Triggers (Implementation Started)
+
+**Objective**: Notify relevant roles when complaint assignment and resolution events occur.
+
+**Implementation**:
+1. **Assignment notifications** (`app/api/complaint/assign/route.ts`):
+  - On successful complaint assignment, creates `COMPLAINT_ASSIGNED` notification for:
+    - complaint citizen (`complaint.citizenId`), and
+    - assigned worker user (best-effort lookup via officer email in `User`).
+  - Adds `complaintId`, `channels: ["in_app"]`, and `deliveredAt` metadata.
+  - Writes best-effort `notification_sent` audit entry.
+
+2. **Resolution notification** (`app/api/complaint/resolve/[id]/route.ts`):
+  - On successful resolve, creates `COMPLAINT_RESOLVED` notification for complaint citizen.
+  - Adds `complaintId`, `channels: ["in_app"]`, and `deliveredAt` metadata.
+  - Writes best-effort `notification_sent` audit entry.
+
+3. **Reliability behavior**:
+  - Notification creation is non-blocking for core assignment/resolve workflows.
+  - If notification write fails, API still returns success for primary complaint action and logs error.
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.

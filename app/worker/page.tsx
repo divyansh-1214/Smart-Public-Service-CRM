@@ -5,6 +5,8 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, LogOut, Mail, ShieldCheck, Inbox, AlertCircle, Clock, CheckCircle2, MapPin } from "lucide-react";
 import { format } from "date-fns";
+import { useAppDispatch } from "@/lib/redux/store";
+import { setWorkerSession, clearUser } from "@/lib/redux/slices/authSlice";
 
 type WorkerSessionData = {
   officerId: string;
@@ -43,6 +45,7 @@ const statusConfig: Record<string, { bg: string; text: string }> = {
 };
 
 export default function WorkerHomePage() {
+  const dispatch = useAppDispatch();
   const [email, setEmail] = useState("");
   const [worker, setWorker] = useState<WorkerSessionData | null>(null);
   const [complaints, setComplaints] = useState<AssignedComplaint[]>([]);
@@ -88,8 +91,13 @@ export default function WorkerHomePage() {
     setIsSubmitting(true);
     try {
       const response = await axios.post("/api/worker/auth/login", { email });
+      console.log("Login response:", response.data);
       const sessionWorker = response.data.data as WorkerSessionData;
       setWorker(sessionWorker);
+      dispatch(setWorkerSession({
+        officerId: sessionWorker.officerId,
+        departmentId: sessionWorker.departmentId,
+      }));
       await fetchAssignedComplaints(sessionWorker.officerId);
     } catch {
       setErrorMessage("Only active worker emails can access this portal.");
@@ -107,6 +115,7 @@ export default function WorkerHomePage() {
       setWorker(null);
       setComplaints([]);
       setEmail("");
+      dispatch(clearUser());
     } catch {
       setErrorMessage("Failed to logout. Please try again.");
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { ComplaintStatus, Priority } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
 
 /**
@@ -61,7 +62,7 @@ export async function GET(
 }
 
 /**
- * PATCH /api/complaint/[id] — Update complaint status/priority
+ * PATCH /api/complaint/[id] — Update complaint status/priority (except RESOLVED)
  */
 export async function PATCH(
   request: NextRequest,
@@ -69,7 +70,13 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { error: "Request body must be a valid JSON object" },
+        { status: 400 }
+      );
+    }
 
     const updateSchema = z.object({
       status: z.nativeEnum(ComplaintStatus).optional(),
@@ -83,6 +90,13 @@ export async function PATCH(
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid request body", issues: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    if (parsed.data.status === ComplaintStatus.RESOLVED) {
+      return NextResponse.json(
+        { error: "Use PATCH /api/complaint/resolve/[id] to mark complaint as RESOLVED" },
         { status: 400 }
       );
     }
@@ -107,26 +121,48 @@ export async function PATCH(
     if (parsed.data.status) updateData.status = parsed.data.status;
     if (parsed.data.priority) updateData.priority = parsed.data.priority;
 
-    // If status is RESOLVED, set resolvedAt
-    if (parsed.data.status === "RESOLVED") {
-      updateData.resolvedAt = new Date();
-    }
-
     const updated = await prisma.complaint.update({
       where: { id },
       data: updateData,
-      include: {
-        citizen: { select: { id: true, name: true, email: true } },
-        department: { select: { id: true, name: true } },
-        assignedOfficer: {
-          select: { id: true, name: true, position: true },
-        },
+      select: {
+        id: true,
+        status: true,
+        priority: true,
+        updatedAt: true,
       },
     });
 
     return NextResponse.json({ data: updated });
   } catch (error) {
     console.error("[PATCH /api/complaint/[id]]", error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2025") {
+        return NextResponse.json(
+          { error: "Complaint not found" },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          error: `Database error while updating complaint (${error.code})`,
+          ...(process.env.NODE_ENV !== "production" && { meta: error.meta ?? null }),
+        },
+        { status: 500 }
+      );
+    }
+
+    if (error instanceof Error) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(process.env.NODE_ENV !== "production" && { name: error.name }),
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to update complaint" },
       { status: 500 }

@@ -25,6 +25,10 @@ import { format } from "date-fns";
 import { ComplaintStatus, Priority } from "@prisma/client";
 import axios from "axios";
 
+const workerUpdatableStatuses = Object.values(ComplaintStatus).filter(
+  (status) => status !== ComplaintStatus.RESOLVED,
+);
+
 export default function WorkerComplaintDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -33,6 +37,8 @@ export default function WorkerComplaintDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [newComment, setNewComment] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<ComplaintStatus | "">("");
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -47,7 +53,13 @@ export default function WorkerComplaintDetailsPage() {
         axios.get(`/api/audit-log?complaintId=${id}`)
       ]);
 
-      setComplaint(complaintRes.data?.data);
+      const complaintData = complaintRes.data?.data;
+      setComplaint(complaintData);
+      if (complaintData?.status && complaintData.status !== ComplaintStatus.RESOLVED) {
+        setSelectedStatus(complaintData.status as ComplaintStatus);
+      } else {
+        setSelectedStatus("");
+      }
       setAuditLogs(auditRes.data?.data ?? []);
     } catch (error) {
       console.error("Error fetching complaint details:", error);
@@ -57,13 +69,31 @@ export default function WorkerComplaintDetailsPage() {
     }
   }
 
-  const updateStatus = async (status: ComplaintStatus) => {
+  const updateStatus = async () => {
+    if (!selectedStatus) return;
+
+    setStatusError(null);
     setUpdating(true);
     try {
-      await axios.patch(`/api/complaint/${id}`, { status });
-      fetchData();
+      await axios.patch(`/api/complaint/${id}`, { status: selectedStatus });
+      await fetchData();
     } catch (error) {
-      console.error("Error updating status:", error);
+      if (axios.isAxiosError(error)) {
+        const apiMessage =
+          (error.response?.data as { error?: string })?.error ??
+          error.message;
+
+        console.error("Error updating status:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+
+        setStatusError(apiMessage || "Failed to update status");
+      } else {
+        console.error("Error updating status:", error);
+        setStatusError("Failed to update status");
+      }
     } finally {
       setUpdating(false);
     }
@@ -100,15 +130,28 @@ export default function WorkerComplaintDetailsPage() {
         </div>
         <div className="flex items-center gap-3">
           <select 
-            value={complaint.status}
-            onChange={(e) => updateStatus(e.target.value as ComplaintStatus)}
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value as ComplaintStatus)}
             className="bg-white border-2 border-gray-100 px-6 py-3 rounded-2xl font-bold text-sm focus:border-blue-600 outline-none transition-all shadow-sm"
             disabled={updating}
           >
-            {Object.values(ComplaintStatus).map(s => (
+            <option value="" disabled>Select status</option>
+            {workerUpdatableStatuses.map(s => (
               <option key={s} value={s}>{s.replace("_", " ")}</option>
             ))}
           </select>
+          <button
+            onClick={updateStatus}
+            disabled={
+              updating ||
+              !selectedStatus ||
+              selectedStatus === complaint.status
+            }
+            className="px-6 py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center gap-2 shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all disabled:opacity-50"
+          >
+            {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Settings className="w-5 h-5" />}
+            Update Status
+          </button>
           <button 
             onClick={handleResolve}
             disabled={updating}
@@ -119,6 +162,12 @@ export default function WorkerComplaintDetailsPage() {
           </button>
         </div>
       </div>
+
+      {statusError && (
+        <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {statusError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
