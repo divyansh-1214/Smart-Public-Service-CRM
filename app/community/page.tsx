@@ -11,6 +11,8 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   ComplaintCategory,
@@ -81,6 +83,7 @@ export default function CommunityPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const queryString = useMemo(() => {
     const query = new URLSearchParams({
@@ -130,7 +133,7 @@ export default function CommunityPage() {
   }, [q, status, priority, category, departmentName, ward, sort]);
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm backdrop-blur sm:p-8">
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-500">
@@ -146,16 +149,30 @@ export default function CommunityPage() {
         </div>
 
         <div className="mt-6 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <label className="relative col-span-1 xl:col-span-2">
+          {/* Search always visible */}
+          <div className="flex items-center gap-3">
+            <label className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search title, description, address, ward or citizen"
+                placeholder="Search complaints..."
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-indigo-400 focus:bg-white"
               />
             </label>
+            <button
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className={`md:hidden flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${
+                filtersOpen ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-slate-50 border-slate-200 text-slate-500"
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <ChevronDown className={`w-3 h-3 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+            </button>
+          </div>
+
+          {/* Collapsible filters — always visible on desktop */}
+          <div className={`mt-3 grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4 ${filtersOpen ? "block" : "hidden md:grid"}`}>
 
             <label className="relative">
               <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

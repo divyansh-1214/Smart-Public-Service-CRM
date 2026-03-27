@@ -131,7 +131,8 @@ export default function DepartmentsAdminPage() {
 
         {/* Table/List */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50/50 border-b border-gray-100">
@@ -202,6 +203,57 @@ export default function DepartmentsAdminPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card Layout */}
+          <div className="md:hidden divide-y divide-gray-50">
+            {loading ? (
+              <div className="p-12 text-center">
+                <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+              </div>
+            ) : filteredDepts.length > 0 ? filteredDepts.map((dept) => (
+              <div key={dept.id} className="p-4 space-y-3 animate-fade-up">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-blue-600 font-black shrink-0">
+                      {dept.name[0]}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-gray-900 truncate">{dept.name}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-0.5 truncate">{dept.description || "No description"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button 
+                      onClick={() => openEdit(dept)}
+                      className="p-1.5 bg-gray-50 text-gray-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-all"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (confirm("Delete this department?")) {
+                          try { await axios.delete(`/api/department/${dept.id}`); fetchDepartments(); } catch { alert("Error"); }
+                        }
+                      }}
+                      className="p-1.5 bg-gray-50 text-gray-400 rounded-lg hover:bg-rose-50 hover:text-rose-600 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 ml-13">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase">
+                    <MapPin className="w-3 h-3" />{dept.pincode || "Global"}
+                  </span>
+                </div>
+              </div>
+            )) : (
+              <div className="p-12 text-center">
+                <AlertCircle className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm font-bold text-gray-400">No departments found</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

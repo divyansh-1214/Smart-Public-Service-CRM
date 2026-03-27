@@ -71,17 +71,17 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {[
-            { label: "Total Submissions", value: stats.total, icon: Activity, color: "blue", trend: stats.trends.total },
-            { label: "Active Resolution", value: stats.open, icon: Clock, color: "amber", trend: stats.trends.open },
-            { label: "SLA Breaches", value: stats.overdue, icon: AlertTriangle, color: "rose", trend: stats.trends.overdue },
-            { label: "Successfully Closed", value: stats.resolved, icon: CheckCircle2, color: "emerald", trend: stats.trends.resolved },
+            { label: "Total Submissions", value: stats.total, icon: Activity, trend: stats.trends.total, iconBg: "bg-blue-50", iconText: "text-blue-600" },
+            { label: "Active Resolution", value: stats.open, icon: Clock, trend: stats.trends.open, iconBg: "bg-amber-50", iconText: "text-amber-600" },
+            { label: "SLA Breaches", value: stats.overdue, icon: AlertTriangle, trend: stats.trends.overdue, iconBg: "bg-rose-50", iconText: "text-rose-600" },
+            { label: "Successfully Closed", value: stats.resolved, icon: CheckCircle2, trend: stats.trends.resolved, iconBg: "bg-emerald-50", iconText: "text-emerald-600" },
           ].map((kpi, i) => (
-            <div key={i} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group transition-all hover:shadow-xl">
+            <div key={i} className="bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group transition-all hover:shadow-xl animate-fade-up" style={{ animationDelay: `${i * 80}ms` }}>
               <div className="flex justify-between items-start relative z-10">
-                <div className={`p-4 rounded-2xl bg-${kpi.color}-50 text-${kpi.color}-600`}>
-                  <kpi.icon className="w-7 h-7" />
+                <div className={`p-3 md:p-4 rounded-2xl ${kpi.iconBg}`}>
+                  <kpi.icon className={`w-6 h-6 md:w-7 md:h-7 ${kpi.iconText}`} />
                 </div>
                 <div className={`text-xs font-black px-3 py-1.5 rounded-full ${
                   kpi.trend.startsWith("+") ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
@@ -89,9 +89,9 @@ export default function AnalyticsDashboard() {
                   {kpi.trend}
                 </div>
               </div>
-              <div className="mt-8 relative z-10">
-                <h3 className="text-4xl font-black text-gray-900 tracking-tight">{kpi.value.toLocaleString()}</h3>
-                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mt-2">{kpi.label}</p>
+              <div className="mt-6 md:mt-8 relative z-10">
+                <h3 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">{kpi.value.toLocaleString()}</h3>
+                <p className="text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest mt-2">{kpi.label}</p>
               </div>
               <div className="absolute -bottom-6 -right-6 opacity-[0.03] group-hover:scale-110 transition-transform duration-500">
                 <kpi.icon className="w-32 h-32 text-gray-900" />
