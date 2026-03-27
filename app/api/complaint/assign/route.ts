@@ -1,7 +1,8 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { NotificationType, OfficerStatus } from "@prisma/client";
+import { NotificationType, OfficerStatus, Role } from "@prisma/client";
 import { z } from "zod";
+import { requireRole } from "@/lib/auth-guard";
 
 // Local enum definition since it may not be exported from @prisma/client
 enum AssignmentOutcome {
@@ -120,6 +121,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const authz = await requireRole([Role.ADMIN, Role.MANAGER]);
+    if (!authz.ok) {
+      return authz.response;
+    }
+
     const { searchParams } = new URL(request.url);
     const queryInput = {
       complaintId: searchParams.get("complaintId") ?? undefined,
@@ -208,7 +214,7 @@ export async function POST(request: NextRequest) {
         data: {
           complaintId,
           officerId,
-          assignedBy: assignedBy ?? null,
+          assignedBy: assignedBy ?? authz.actor.id,
           assignedAt,
           deadline,
         },
@@ -218,7 +224,7 @@ export async function POST(request: NextRequest) {
 
       await prisma.$executeRaw`
         INSERT INTO "complaint_assignments" ("id", "complaintId", "officerId", "assignedBy", "assignedAt", "deadline")
-        VALUES (${assignmentId}, ${complaintId}, ${officerId}, ${assignedBy ?? null}, ${assignedAt}, ${deadline})
+        VALUES (${assignmentId}, ${complaintId}, ${officerId}, ${assignedBy ?? authz.actor.id}, ${assignedAt}, ${deadline})
       `;
 
       const rows = await prisma.$queryRaw<
@@ -253,7 +259,7 @@ export async function POST(request: NextRequest) {
         id: assignmentId,
         complaintId,
         officerId,
-        assignedBy: assignedBy ?? null,
+        assignedBy: assignedBy ?? authz.actor.id,
         assignedAt,
         relievedAt: null,
         outcome: null,
@@ -292,6 +298,11 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const authz = await requireRole([Role.ADMIN, Role.MANAGER]);
+    if (!authz.ok) {
+      return authz.response;
+    }
+
     const rawBody = await request.text();
     let bodyInput: Record<string, unknown> = {};
     if (rawBody.trim().length > 0) {

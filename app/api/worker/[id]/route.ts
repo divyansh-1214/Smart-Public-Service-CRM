@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { OfficerStatus, Position } from "@prisma/client";
+import { OfficerStatus, Position, Role } from "@prisma/client";
 import { z } from "zod";
+import { requireRole } from "@/lib/auth-guard";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -55,6 +56,11 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 // PATCH /api/worker/[id] — partially update an officer
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   try {
+    const authz = await requireRole([Role.ADMIN]);
+    if (!authz.ok) {
+      return authz.response;
+    }
+
     const { id } = await params;
     const parsed = updateWorkerSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -137,6 +143,11 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 // DELETE /api/worker/[id] — remove a worker/officer
 export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   try {
+    const authz = await requireRole([Role.ADMIN]);
+    if (!authz.ok) {
+      return authz.response;
+    }
+
     const { id } = await params;
 
     const existing = await prisma.officer.findUnique({ where: { id } });

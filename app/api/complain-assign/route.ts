@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth-guard";
 
 enum AssignmentOutcome {
 	REASSIGNED = "REASSIGNED",
@@ -302,6 +303,11 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
 	try {
+		const authz = await requireRole([Role.ADMIN]);
+		if (!authz.ok) {
+			return authz.response;
+		}
+
 		const body = await request.json().catch(() => null);
 		const parsed = patchAssignmentSchema.safeParse(body ?? {});
 

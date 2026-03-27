@@ -209,7 +209,14 @@ Last updated: 2026-03-27
   - Output: Normalized transcription payload (`text`, `language`, `duration`, `model`).
 - **POST /api/agents** — Handles Vapi tool-call webhooks for voice assistant integration.
   - Processes `tool-calls` payload with `toolWithToolCallList` array.
-  - Implemented tools: `checkComplaintStatus` (queries DB for complaint status), `createComplaint` (stub response for voice submissions).
+  - Implemented tools:
+    - `checkComplaintStatus` (queries DB for complaint status)
+    - `createComplaint` (creates real complaint records in DB)
+      - Resolves citizen identity from `citizenId` OR `userEmail`/`email` tool args
+      - Falls back to Clerk signed-in user context when available
+      - Auto-creates DB user from Clerk profile if missing (best-effort)
+      - Auto-classifies department and auto-generates complaint title before insert
+      - Applies defaults for category/priority and stores optional location/media fields
   - Returns `{ results: [{ toolCallId, result }] }` array for Vapi callback.
   - Fallback for unimplemented tools with error message.
 
@@ -508,6 +515,30 @@ Last updated: 2026-03-27
 
 **Testing Status**: Ready for manual testing via Navbar voice button
 - Click "Voice AI" → Allow mic → Speak complaint inquiry → See live transcript and tool responses
+
+### Voice Agent Complaint Creation (DB + Clerk Mapping)
+
+**Objective**: Connect voice tool calls to real complaint creation with Clerk-linked user resolution.
+
+**Implementation**:
+1. **Agents route upgrade** (`app/api/agents/route.ts`):
+  - `createComplaint` tool now inserts complaint rows into Prisma DB (no longer stubbed).
+  - Parses tool-call arguments safely and returns per-tool actionable errors.
+
+2. **Citizen resolution flow**:
+  - Priority order: `citizenId` (DB ID) -> `userEmail` / `email` (tool args) -> Clerk auth context.
+  - If DB user by email is missing and Clerk context exists, creates Prisma `User` record automatically.
+
+3. **Complaint enrichment**:
+  - Department classification via `classifyDepartmentWithAgent()` with fallback handling.
+  - Title generation via `decideDiscription()` with deterministic fallback.
+  - Stores optional location, ward/pincode, tags, media arrays and attachment count.
+
+4. **Response behavior**:
+  - Returns tool result string including complaint ID, title, status, priority, and department.
+  - Uses no-store headers for all agent responses.
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
 
 ### Worker Complaint Status Update Guardrails
 

@@ -4,16 +4,24 @@ import { ComplaintStatus, NotificationType } from "@prisma/client";
 import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
 
 // This route handles fetching unresolved complaints and marking a complaint as resolved.
-export async function GET(_request: Request) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
-    const complaint = await prisma.complaint.findMany({
-      where: { resolvedAt: null },
+    const { id } = await params;
+    const complaint = await prisma.complaint.findUnique({
+      where: { id },
       include: {
         assignedOfficer: true,
       },
     });
 
-    return NextResponse.json({data : complaint});
+    if (!complaint) {
+      return NextResponse.json({ error: "Complaint not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ data: complaint });
   } catch (error) {
     console.error("[GET /api/complaint/resolve/[id]]", error);
     return NextResponse.json(
@@ -57,6 +65,7 @@ export async function PATCH(
       data: {
         status: ComplaintStatus.RESOLVED,
         resolvedAt: new Date(),
+        ...(workerSession ? { resolvedById: workerSession.officerId } : {}),
       },
       select: {
         id: true,

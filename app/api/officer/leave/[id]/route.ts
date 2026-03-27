@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { Role } from "@prisma/client";
+import { requireRole } from "@/lib/auth-guard";
 
 // ── Validation Schema ─────────────────────────────────────────────────────────
 
@@ -43,6 +45,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const authz = await requireRole([Role.MANAGER, Role.ADMIN]);
+    if (!authz.ok) {
+      return authz.response;
+    }
+
     const { id } = await params;
 
     const body = await request.json();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { requireRole } from "@/lib/auth-guard";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -27,6 +28,11 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 // PATCH /api/users/[id] — partially update a user
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   try {
+    const authz = await requireRole([Role.ADMIN]);
+    if (!authz.ok) {
+      return authz.response;
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { email, name, role, phone, avatarUrl, isActive } = body;
@@ -111,6 +117,11 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 // DELETE /api/users/[id] — remove a user
 export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   try {
+    const authz = await requireRole([Role.ADMIN]);
+    if (!authz.ok) {
+      return authz.response;
+    }
+
     const { id } = await params;
 
     const existing = await prisma.user.findUnique({ where: { id } });

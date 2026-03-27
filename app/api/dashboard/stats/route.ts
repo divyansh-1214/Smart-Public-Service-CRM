@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ComplaintStatus, EscalationLevel } from "@prisma/client";
+import { ComplaintStatus, EscalationLevel, Role } from "@prisma/client";
 import { getCache, setCache } from "@/lib/cache";
+import { requireRole } from "@/lib/auth-guard";
 
 const DASHBOARD_STATS_CACHE_KEY = "cache:dashboard:stats:v1";
 const DASHBOARD_STATS_CACHE_TTL_SECONDS = 60;
 
 export async function GET() {
   try {
+    const authz = await requireRole([Role.ADMIN, Role.MANAGER]);
+    if (!authz.ok) {
+      return authz.response;
+    }
+
     const cachedResponse = await getCache<{ data: unknown; meta?: Record<string, unknown> }>(
       DASHBOARD_STATS_CACHE_KEY
     );
