@@ -5,11 +5,18 @@ export async function GET(){
   const sampleDescription = "There is a large pothole on Main Street that is causing traffic issues.";
   const department = await classifyDepartmentWithAgent(sampleDescription);
   console.log(`Classified department for sample description: ${department}`);
-  return NextResponse.json(
+  const response = NextResponse.json(
     {
       status: "ok",
       message: "GET request received successfully",
     });
+  
+  // Disable caching for Vapi agent interactions
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
+  
+  return response;
 }
 
 
@@ -68,22 +75,43 @@ export async function POST(request: NextRequest) {
       }
 
       // Return the array of results for each tool call
-      return NextResponse.json({ results });
+      const response = NextResponse.json({ results });
+      
+      // Disable caching for Vapi agent interactions
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('Pragma', 'no-cache');
+      response.headers.set('Expires', '0');
+      
+      return response;
     }
 
     // Default response for other message types (e.g. status-update, end-of-call-report)
-    return NextResponse.json({
+    const response = NextResponse.json({
       status: "ok",
       message: "Agent data received successfully",
     });
+    
+    // Disable caching for Vapi agent interactions
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (error) {
     console.error("Error parsing agent data:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         status: "error",
         message: error instanceof Error ? error.message : "Unknown error parsing agent data",
       },
       { status: 400 }
     );
+    
+    // Disable caching for Vapi agent interactions
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   }
 }
