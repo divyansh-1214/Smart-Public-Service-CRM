@@ -1,6 +1,6 @@
 # CRM Project Agent Context
 
-Last updated: 2026-03-26
+Last updated: 2026-03-27
 
 ## Project Overview
 - Project type: Next.js App Router application (TypeScript)
@@ -205,6 +205,11 @@ Last updated: 2026-03-26
   - Input: `multipart/form-data` with `audio` file and optional `language` (`auto` supported).
   - Validation: Rejects empty payloads, unsupported MIME types, and files larger than 15MB.
   - Output: Normalized transcription payload (`text`, `language`, `duration`, `model`).
+- **POST /api/agents** — Handles Vapi tool-call webhooks for voice assistant integration.
+  - Processes `tool-calls` payload with `toolWithToolCallList` array.
+  - Implemented tools: `checkComplaintStatus` (queries DB for complaint status), `createComplaint` (stub response for voice submissions).
+  - Returns `{ results: [{ toolCallId, result }] }` array for Vapi callback.
+  - Fallback for unimplemented tools with error message.
 
 ### 4. Authentication / Clerk
 - Clerk is wired into `app/layout.tsx` via `ClerkProvider` and auth UI components.
@@ -242,7 +247,12 @@ Last updated: 2026-03-26
   - **`components/crm/GrievanceForm.tsx`** (UPDATED) — Legacy 4-step form now has FileUploader integrated at step 2
     - Kept for backward compatibility; used in certain workflows
     - Still supports full category/priority selection and location management
-  - Other existing components: `ComplaintTracker`, `ComplaintMap`, `DashboardStats`, `Navbar`, etc.
+  - **`components/crm/VapiButton.tsx`** (NEW) — Voice AI assistant button with real-time chat interface.
+    - Dynamic import of `@vapi-ai/web` SDK with lazy instantiation.
+    - Event listeners for call-start/end, message transcripts, and tool-call notifications.
+    - Floating chat window with live conversation display and status indicators.
+    - Requires `NEXT_PUBLIC_VAPI_PUBLIC_KEY` and `NEXT_PUBLIC_VAPI_ASSISTANT_ID` env vars.
+    - Integrated in `components/layout/Navbar.tsx` for global access.
 
 ### 6. Recent Database Sync Notes (Important)
 - Schema push previously failed due to live data constraints while enforcing required complaint fields.
@@ -285,7 +295,6 @@ Last updated: 2026-03-26
 - If multi-worker complaint assignment is required, regenerate/apply Prisma schema-client alignment first, then restore worker-history writes in assignment APIs.
 - Clarify/fix `/api/complaint/resolve/[id]` GET semantics (currently returns unresolved items and ignores path ID).
 - Populate `resolvedById` when resolving complaints for stronger auditability.
-- Complete `/api/agents` POST business logic beyond payload receipt.
 
 ## Environment Variables Expected
 - **Database**: `DATABASE_URL` (PostgreSQL connection string for Neon)
@@ -297,6 +306,9 @@ Last updated: 2026-03-26
   - Optional: `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`, `CLOUDINARY_UPLOAD_FOLDER`
 - **Cron Jobs**: `CRON_SECRET` (for `/api/cron/escalate` endpoint protection)
 - **AI/Transcription**: `GROQ_API_KEY` (used for Gemini fallback and voice transcription endpoint)
+- **Vapi** (NEW):
+  - `NEXT_PUBLIC_VAPI_PUBLIC_KEY` (required for voice assistant SDK)
+  - `NEXT_PUBLIC_VAPI_ASSISTANT_ID` (required for voice assistant configuration)
 
 ## Conventions Already Used
 - API handlers return JSON with explicit error messages and status codes.
@@ -466,3 +478,31 @@ Last updated: 2026-03-26
 - [ ] Phase 3: Update complaint detail display surfaces (admin/worker pages) to render Cloudinary images + PDFs
 - [ ] Phase 4-5: Avatar integration (wire FileUploader to user/officer profile edit flows, use `buildAvatarUrl()` for rendering)
 - [ ] Phase 6: Hardening (rate limiting, enhanced error messages, README docs, ownership verification for DELETE)
+
+## Recent Changes (Session: 2026-03-27)
+
+### Vapi Voice Assistant Integration
+
+**Objective**: Add real-time voice AI assistant for complaint management and status inquiries.
+
+**Implementation**:
+1. **VapiButton component** (`components/crm/VapiButton.tsx`):
+   - Client-side voice assistant with floating chat UI.
+   - Dynamic SDK import and instance management.
+   - Event-driven chat updates (transcripts, tool calls, status).
+   - Integrated into Navbar for global access.
+
+2. **Agents API enhancement** (`app/api/agents/route.ts`):
+   - POST endpoint now handles Vapi tool-call webhooks.
+   - Supports `checkComplaintStatus` tool: DB lookup with status/title/priority response.
+   - Supports `createComplaint` tool: Stub response for voice submissions.
+   - Structured results array for Vapi callback integration.
+
+3. **Environment configuration**:
+   - Added `NEXT_PUBLIC_VAPI_PUBLIC_KEY` and `NEXT_PUBLIC_VAPI_ASSISTANT_ID` requirements.
+   - Client-side env vars for SDK initialization.
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
+
+**Testing Status**: Ready for manual testing via Navbar voice button
+- Click "Voice AI" → Allow mic → Speak complaint inquiry → See live transcript and tool responses
