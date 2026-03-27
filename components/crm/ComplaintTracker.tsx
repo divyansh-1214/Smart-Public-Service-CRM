@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { ComplaintStatus, Priority } from "@prisma/client";
+import axios from "axios";
 
 interface Complaint {
   id: string;
@@ -45,12 +46,20 @@ export default function ComplaintTracker({ citizenId }: ComplaintTrackerProps) {
   const fetchComplaints = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/complaint?citizenId=${citizenId}`);
-      if (!response.ok) throw new Error("Failed to fetch complaints");
-      const result = await response.json();
-      setComplaints(result.data);
-    } catch (err: any) {
-      setError(err.message);
+      const response = await axios.get("/api/complaint", {
+        params: {
+          citizenId,
+          page: 1,
+          limit: 100,
+        },
+      });
+      setComplaints(response.data.data);
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error ?? "Failed to fetch complaints");
+      } else {
+        setError("Failed to fetch complaints");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -221,10 +230,13 @@ export default function ComplaintTracker({ citizenId }: ComplaintTrackerProps) {
                     )}
                   </div>
 
-                  <button className="w-full mt-4 md:mt-0 flex items-center justify-center gap-2 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all">
+                  <a 
+                    href={`/complaint/${c.id}`}
+                    className="w-full mt-4 md:mt-0 flex items-center justify-center gap-2 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all"
+                  >
                     View Action History
                     <ChevronRight className="w-4 h-4" />
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>

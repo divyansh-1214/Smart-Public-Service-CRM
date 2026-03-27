@@ -1,6 +1,6 @@
 # CRM Project Agent Context
 
-Last updated: 2026-03-24
+Last updated: 2026-03-27
 
 ## Project Overview
 - Project type: Next.js App Router application (TypeScript)
@@ -22,6 +22,9 @@ Last updated: 2026-03-24
   - `lib/prisma.ts` for singleton Prisma client.
   - `lib/escalation.ts` for overdue assignment escalation logic.
   - `lib/agents/classifier.ts` for department classification via LangChain tool/agent flow.
+  - `lib/cloudinary.ts` for server-side Cloudinary SDK integration (lazy-init pattern, uploads, transforms, deletions).
+  - `lib/upload-validators.ts` for file type/size/count validation rules and Zod schema.
+  - `lib/worker-auth.ts` for worker session JWT authentication (existing).
 
 - **Data layer (`prisma/schema.prisma`)**
   - PostgreSQL schema with complaint lifecycle, assignment history, notification, feedback, and system config tables.
@@ -102,9 +105,19 @@ Last updated: 2026-03-24
 
 #### Complaint APIs
 - `GET /api/complaint` lists complaints with pagination and citizen relation include.
+- `GET /api/complaint?mode=map` returns map-ready complaint markers with valid coordinates only.
+  - Map mode payload fields: `id`, `title`, `priority`, `status`, `ward`, `locationAddress`, `lat`, `lng`, `createdAt`.
+  - Optional status filters supported via `status` / `statuses` (comma-separated).
+  - Existing default list response shape remains unchanged for non-map calls.
 - `POST /api/complaint` validates payload with Zod and creates complaint records.
 - Complaint create route requires `citizenId` (CUID) and validates citizen existence/activity.
 - Complaint create route auto-classifies department from description and persists both `DEPARTMENT_NAME` and `departmentId`.
+
+#### Map Data APIs
+- **GET /api/wards** — Fetches and normalizes MCD ward/zone geometry from remote JS-wrapped GeoJSON sources.
+  - Sources: `https://webmap.mcd.gov.in/data/ward_3.js`, `https://webmap.mcd.gov.in/data/zone_4.js`.
+  - Returns normalized `wards` + `zones` FeatureCollections and centroid points (`centroids.wards`, `centroids.zones`).
+  - Includes cache headers for upstream payload stability and performance.
 
 #### Complaint Resolve APIs
 - **GET /api/complaint/resolve/[id]** — Returns unresolved complaints (`resolvedAt = null`) with assigned officer include.
@@ -169,19 +182,71 @@ Last updated: 2026-03-24
   - One feedback per user per complaint enforced by DB unique constraint; returns `409` on duplicate
   - Returns `201` with created feedback record
 
+#### File Upload API
+- **POST /api/upload** — Secure authenticated multipart file upload to Cloudinary
+  - Auth: Requires Clerk session or worker session JWT
+  - Body: `multipart/form-data` with `files` field (0-10 files per request)
+  - Validation: Client validates; server validates MIME type, file size (images ≤10MB, videos ≤100MB, PDFs ≤20MB), file count
+  - Upload: Streams files to Cloudinary with public_id naming (folder routing by user type: crm/evidence for workers, crm/complaints for citizens)
+  - Response: `200` with normalized metadata array including `publicId`, `secureUrl`, `resourceType`, `format`, `bytes`, `cardImageUrl` (optimized preview)
+  - Partial success: `207` Multi-Status if some files fail; all fail returns `400`
+  - Error handling: Descriptive messages for common failures (bad type, oversized, auth failure)
+
+- **DELETE /api/upload?publicId=xxx** — Remove asset from Cloudinary
+  - Auth: Requires Clerk or worker session
+  - Query param: `publicId` (Cloudinary asset ID to delete)
+  - Response: `200` on success, `404` if asset not found, `401` if not authenticated
+  - Implementation: Calls Cloudinary `api.resource()` delete endpoint
+
 #### Agents APIs
 - **GET /api/agents** — Basic health/test endpoint for agent flow.
-- **POST /api/agents** — Accepts payload (`name`, `description`) and currently logs/echoes receipt with error handling.
+- **POST /api/agents** — Handles Vapi tool-call webhooks for voice assistant integration.
+  - Processes `tool-calls` payload with `toolWithToolCallList` array.
+  - Implemented tools: `checkComplaintStatus` (queries DB for complaint status), `createComplaint` (stub response for voice submissions).
+  - Returns `{ results: [{ toolCallId, result }] }` array for Vapi callback.
+  - Fallback for unimplemented tools with error message.
 
 ### 4. Authentication / Clerk
 - Clerk is wired into `app/layout.tsx` via `ClerkProvider` and auth UI components.
 - `app/api/secure-api-route/route.ts` provides an authenticated sample route (`401` when unauthenticated).
 - Clerk environment variables are expected outside repo config.
 
-### 5. Frontend State
-- `app/page.tsx` is a client-rendered CRM interface with Clerk user sync and tabbed views (dashboard/new/history/map).
+### 5. Frontend State & Components
+- `app/page.tsx` (now `app/dashboard/page.tsx` in production) is a client-rendered CRM interface with Clerk user sync and tabbed views (dashboard/new/history/map).
 - `app/admin/page.tsx` is implemented with complaint and user management workflows.
-- Core CRM UI components exist in `components/crm/*` and are actively used.
+- Core CRM UI components exist in `components/crm/*` and are actively used:
+  - **`components/crm/CRMMap.tsx`** (UPDATED) — Leaflet map now supports:
+    - Ward and zone boundary layer rendering from `/api/wards`
+    - Ward/zone centroid rendering
+    - Complaint marker rendering from `/api/complaint?mode=map` (priority-based colors)
+    - Ward search and fit-to-bound behavior
+    - Graceful partial failure messaging if layers/complaints fail independently
+  - **`components/crm/FileUploader.tsx`** (NEW) — Production-grade reusable file uploader with:
+    - Drag-and-drop zone with hover states
+    - File preview grid (image thumbnails + PDF icons)
+    - Upload progress tracking with animated spinners
+    - Error display and clear button
+    - Support for images, videos, PDFs (configurable via props)
+    - Partial upload handling (some success, some fail)
+    - Integration with `/api/upload` endpoint
+    - Props: `value` (URL[]), `onChange` (callback), `maxFiles`, `maxSizePerFile`, `acceptedTypes`, `label`, `description`
+  - **`components/crm/QuickComplaintForm.tsx`** (NEW) — Streamlined single-page complaint submission with:
+    - Description textarea (10-1000 chars, real-time counter)
+    - Auto-location detection via browser geolocation (shows lat/lng with refresh button)
+    - Image upload integration via FileUploader (0-5 files)
+    - Auto-submit to `/api/complaint` with success/error states
+    - Category & priority default to `OTHER` and `MEDIUM` (hidden from user)
+    - Smooth animations and responsive design
+    - Citizen speedup over old 4-step GrievanceForm
+  - **`components/crm/GrievanceForm.tsx`** (UPDATED) — Legacy 4-step form now has FileUploader integrated at step 2
+    - Kept for backward compatibility; used in certain workflows
+    - Still supports full category/priority selection and location management
+  - **`components/crm/VapiButton.tsx`** (NEW) — Voice AI assistant button with real-time chat interface.
+    - Dynamic import of `@vapi-ai/web` SDK with lazy instantiation.
+    - Event listeners for call-start/end, message transcripts, and tool-call notifications.
+    - Floating chat window with live conversation display and status indicators.
+    - Requires `NEXT_PUBLIC_VAPI_PUBLIC_KEY` and `NEXT_PUBLIC_VAPI_ASSISTANT_ID` env vars.
+    - Integrated in `components/layout/Navbar.tsx` for global access.
 
 ### 6. Recent Database Sync Notes (Important)
 - Schema push previously failed due to live data constraints while enforcing required complaint fields.
@@ -199,6 +264,23 @@ Last updated: 2026-03-24
 - **`instrumentation.ts`** — Next.js instrumentation hook that starts a `node-cron` job every 15 minutes on server startup (Node.js runtime only).
 - **`POST /api/cron/escalate`** — Manual trigger endpoint for the escalation check. Protected by `CRON_SECRET` env var via `x-cron-secret` header.
 
+### 8. Frontend HTTP Client Standardization (Axios)
+- Page-level API calls in `app/**/page.tsx` were migrated from `fetch` to `axios` for consistency.
+- Migration completed across key citizen/admin/worker pages, including:
+  - `app/page.tsx`
+  - `app/admin/page.tsx`
+  - `app/admin/analytics/page.tsx`
+  - `app/admin/departments/page.tsx`
+  - `app/admin/complaint/[id]/page.tsx`
+  - `app/complaint/[id]/page.tsx`
+  - `app/feedback/page.tsx`
+  - `app/notifications/page.tsx`
+  - `app/worker/dashboard/page.tsx`
+  - `app/worker/complaint/[id]/page.tsx`
+  - `app/worker/leave/page.tsx`
+  - `app/worker/sync/page.tsx`
+- Existing response envelope usage remains unchanged (`{ data, meta }`), now accessed through axios response objects.
+
 ## Current Known Gaps / Next Work
 - Add authorization rules by role across API routes (not just authentication checks).
 - Add tests (API and integration), since test setup is still minimal.
@@ -207,17 +289,36 @@ Last updated: 2026-03-24
 - If multi-worker complaint assignment is required, regenerate/apply Prisma schema-client alignment first, then restore worker-history writes in assignment APIs.
 - Clarify/fix `/api/complaint/resolve/[id]` GET semantics (currently returns unresolved items and ignores path ID).
 - Populate `resolvedById` when resolving complaints for stronger auditability.
-- Complete `/api/agents` POST business logic beyond payload receipt.
 
 ## Environment Variables Expected
-- `DATABASE_URL`
-- Clerk environment variables per Next.js + Clerk integration (for example `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`).
+- **Database**: `DATABASE_URL` (PostgreSQL connection string for Neon)
+- **Clerk**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
+- **Cloudinary** (NEW):
+  - `CLOUDINARY_CLOUD_NAME` (required for uploads)
+  - `CLOUDINARY_API_KEY` (required for uploads)
+  - `CLOUDINARY_API_SECRET` (required, server-side only, **never expose to browser**)
+  - Optional: `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`, `CLOUDINARY_UPLOAD_FOLDER`
+- **Vapi** (NEW):
+  - `NEXT_PUBLIC_VAPI_PUBLIC_KEY` (required for voice assistant SDK)
+  - `NEXT_PUBLIC_VAPI_ASSISTANT_ID` (required for voice assistant configuration)
 
 ## Conventions Already Used
 - API handlers return JSON with explicit error messages and status codes.
 - Validation is currently inline in route handlers using Zod.
 - User email values are normalized to lowercase before persistence.
 - Pagination limits are capped at 100 where applicable.
+- UI pages prefer `axios` for HTTP calls; use `response.data` / `response.data.data` according to route envelope.
+- **File Upload Validation** (NEW):
+  - Client-side validation in FileUploader: type & size checks before network request
+  - Server-side validation in `/api/upload`: re-validates MIME type, size, count (defense in depth)
+  - File size limits configurable per file type via `lib/upload-validators.ts`
+  - Cloudinary public_id naming includes timestamp + sanitized filename to prevent collisions
+  - Upload folder routing by user type: `crm/evidence/` for workers, `crm/complaints/` for citizens
+- **Cloudinary Integration Pattern** (NEW):
+  - Lazy-init pattern in `lib/cloudinary.ts`: env vars checked at runtime (not build time) to avoid compile errors
+  - All Cloudinary operations (upload, transform, delete) abstract away public_id format
+  - URL transformation helpers return optimized URLs with auto-format, quality, and crop settings
+  - Server-side secrets (`CLOUDINARY_API_SECRET`) never exposed; all auth via server-signed endpoints
 
 ## Guidance For Future LLM Sessions
 - Treat existing `/api/users`, `/api/worker`, `/api/department`, and `/api/complaint` behavior as current baseline.
@@ -226,10 +327,157 @@ Last updated: 2026-03-24
   - PATCH /api/complaint/assign updates only outcome and performanceNote
   - Both routes use raw SQL fallback for missing Prisma delegates
   - AssignmentOutcome enum is defined locally in the route file (not imported from Prisma)
+- **File Upload & Cloudinary Integration** (NEW):
+  - `/api/upload` endpoint is production-ready with Clerk + worker auth support
+  - FileUploader component is reusable and self-contained (no Redux dependency)
+  - Cloudinary lazy-init in `lib/cloudinary.ts` prevents build-time env var errors
+  - All file validation rules centralized in `lib/upload-validators.ts` for consistency
+  - QuickComplaintForm is the new default for citizen submissions (single-page, fast)
+  - GrievanceForm is legacy but still available for workflows needing category/priority selection
+  - When integrating uploads into new forms, wire FileUploader via `onChange` callback to update parent state
+  - Complaint model already supports `photosUrls[]` and `videoUrls[]` arrays; no schema migration needed
 - Prefer incremental changes that preserve existing response shapes unless explicitly requested.
+- When editing page-level data fetching/mutations in `app/**/page.tsx`, keep `axios` as the default client unless there is a specific reason not to.
 - When changing Prisma-required fields on non-empty tables, plan a data backfill before enforcing NOT NULL/FK constraints.
 - Before major refactors, verify compatibility with existing handlers in `app/api/**`.
 - For assignment routes, keep responses as `4xx` for validation/domain failures instead of bubbling avoidable assignment errors into `500`.
 - Keep this file as the canonical high-level project log and update it after significant changes.
 - When adding to assign routes or modifying enum values, update both the schema.prisma and the local enum definition in route.ts.
 - Note that `middleware.ts` currently marks `/api/(.*)` as public; endpoint-level auth/authorization must be enforced inside route handlers.
+- For Cloudinary integration: env vars are lazy-loaded, so builds work even before env is set; always call `ensureConfigured()` before using SDK operations.
+- File upload errors should be user-friendly and actionable (e.g., "File size exceeds 10MB limit" not "413 Payload Too Large").
+- When adding new complaint form variants, prefer QuickComplaintForm (auto-location, fast) unless category/priority selection is required.
+- AI reliability conventions:
+  - Department classification path: Gemini first, then Groq fallback, then deterministic keyword fallback.
+  - Complaint-title generation path: Gemini first, then Groq fallback, then deterministic text-derived fallback.
+
+## Recent Changes (Session: 2026-03-26)
+
+### Map + AI Reliability Enhancements
+
+**Objective**: Improve operational map visibility and AI resiliency under provider failures.
+
+**Implementation**:
+1. **Complaint map overlay support**:
+  - Extended `GET /api/complaint` with `mode=map` for coordinate-valid complaint marker payloads.
+  - Added optional status filtering (`status` / `statuses`) in map mode.
+  - Preserved existing response behavior for non-map calls.
+
+2. **Ward/zone boundary ingestion**:
+  - Added `GET /api/wards` to ingest remote ward/zone JS datasets and normalize them into GeoJSON.
+  - Added centroid generation for ward and zone labeling support.
+
+3. **Leaflet map integration**:
+  - Updated `components/crm/CRMMap.tsx` to render boundaries, centroids, and complaint markers in one map canvas.
+  - Added priority-based complaint marker coloring and complaint context popups.
+
+4. **AI provider fallback hardening**:
+  - Updated `lib/agents/classifier.ts`: Gemini -> Groq -> keyword fallback.
+  - Updated `lib/agents/classifydep.ts`: Gemini -> Groq -> deterministic fallback title.
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
+
+### Cloudinary Media Integration (Phases 1-2 Complete)
+
+**Objective**: Secure server-side file uploads for complaint photos, videos, PDFs, and user avatars.
+
+**Implementation**:
+1. **lib/cloudinary.ts** — Server-side Cloudinary client wrapper with:
+   - Lazy-init pattern (`ensureConfigured()`) to defer env var checks from build time to runtime
+   - `uploadFileToCloudinary(buffer, filename, folder)` — Streams file to Cloudinary, returns normalized metadata
+   - `buildOptimizedImageUrl(publicId, options)` — Custom transforms with width/height/crop/quality
+   - `buildAvatarUrl(publicId, size)` — Auto face-crop for profile images
+   - `buildCardImageUrl(publicId, w, h)` — Landscape crop for complaint preview cards
+   - `deleteCloudinaryAsset(publicId)` — Asset removal
+   - `isCloudinaryUrl(url)` — Validation helper
+
+2. **lib/upload-validators.ts** — Centralized validation rules:
+   - `ALLOWED_IMAGE_TYPES`, `ALLOWED_VIDEO_TYPES`, `ALLOWED_DOCUMENT_TYPES` enums
+   - `FILE_SIZE_LIMITS` object (images 10MB, videos 100MB, PDFs 20MB)
+   - `MAX_FILES_PER_UPLOAD = 10`
+   - `validateFile()`, `validateFileType()`, `validateFileSize()`, `validateFileCount()` functions
+   - Zod schema `uploadFileSchema` for API request validation
+
+3. **app/api/upload/route.ts** — Secure authenticated upload endpoint:
+   - **POST** — Multipart file upload
+     - Auth: Clerk session + worker session (JWT) support
+     - Validation: File type, size, count (client + server-side)
+     - Upload: Loops through files, calls `uploadFileToCloudinary()`, handles partial success
+     - Response: `{urls: [{publicId, secureUrl, resourceType, format, bytes, cardImageUrl?}], metadata: {totalFiles, totalBytes, uploadedAt, userId?, officerId?}}`
+     - Errors: `400` (validation), `401` (auth), `207` (partial success)
+   - **DELETE** — Asset cleanup
+     - Auth: Clerk or worker session required
+     - Query param: `publicId` (asset to delete)
+     - Response: `{message: "Asset deleted successfully."}`
+     - TODO: Add ownership verification per user/officer
+
+4. **components/crm/FileUploader.tsx** — Reusable React uploader component:
+   - Drag-and-drop zone with click-to-select fallback
+   - File preview grid (image thumbnails, PDF icons)
+   - Real-time upload progress bars
+   - Remove buttons for individual files (hover state)
+   - Error display with clear button
+   - Support for images, videos, PDFs (configurable)
+   - Optimistic state; integrates with Cloudinary URLs
+   - Props: `value` (URLs), `onChange` (parent callback), `maxFiles`, `maxSizePerFile`, `acceptedTypes`, `label`, `description`
+
+5. **components/crm/QuickComplaintForm.tsx** (NEW) — Simplified citizen complaint form:
+   - Single-page form (no step progression)
+   - Fields: description (10-1000 chars), photos (0-5 files via FileUploader), location (auto-detected via browser geolocation)
+   - Hidden fields: category (defaults to OTHER), priority (defaults to MEDIUM)
+   - Auto-location: On mount, browser geolocation detected; user can refresh
+   - Submits to `/api/complaint` with all fields; success message + auto-redirect to history
+   - Real-time description character counter
+   - Location shows lat/lng with 4-decimal precision
+
+6. **components/crm/GrievanceForm.tsx** (UPDATED):
+   - Integrated FileUploader into step 2 (details) after description textarea
+   - Wired to `photosUrls` state via `react-hook-form` `setValue()`
+   - Still supports full category/priority selection and manual location management (4-step flow)
+
+7. **app/dashboard/page.tsx** (UPDATED):
+   - Replaced `GrievanceForm` import with `QuickComplaintForm`
+   - "Submit Grievance" tab now renders QuickComplaintForm (faster, simpler UX)
+   - Old GrievanceForm still available in codebase for backward compatibility
+
+8. **Environment Setup**:
+   - `.env.example` created with Cloudinary credentials template
+   - Required vars: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (server-side only)
+
+**Build Status**: ✅ `npm run build` succeeds (compiled in 7.9s, no TypeScript errors)
+
+**Testing Status**: Ready for manual testing via dashboard UI
+- Submit Grievance tab → Fill description → Allow location → Upload photos → Submit → Verify in history
+
+**Next Steps** (Phases 3-6):
+- [ ] Phase 3: Update complaint detail display surfaces (admin/worker pages) to render Cloudinary images + PDFs
+- [ ] Phase 4-5: Avatar integration (wire FileUploader to user/officer profile edit flows, use `buildAvatarUrl()` for rendering)
+- [ ] Phase 6: Hardening (rate limiting, enhanced error messages, README docs, ownership verification for DELETE)
+
+## Recent Changes (Session: 2026-03-27)
+
+### Vapi Voice Assistant Integration
+
+**Objective**: Add real-time voice AI assistant for complaint management and status inquiries.
+
+**Implementation**:
+1. **VapiButton component** (`components/crm/VapiButton.tsx`):
+   - Client-side voice assistant with floating chat UI.
+   - Dynamic SDK import and instance management.
+   - Event-driven chat updates (transcripts, tool calls, status).
+   - Integrated into Navbar for global access.
+
+2. **Agents API enhancement** (`app/api/agents/route.ts`):
+   - POST endpoint now handles Vapi tool-call webhooks.
+   - Supports `checkComplaintStatus` tool: DB lookup with status/title/priority response.
+   - Supports `createComplaint` tool: Stub response for voice submissions.
+   - Structured results array for Vapi callback integration.
+
+3. **Environment configuration**:
+   - Added `NEXT_PUBLIC_VAPI_PUBLIC_KEY` and `NEXT_PUBLIC_VAPI_ASSISTANT_ID` requirements.
+   - Client-side env vars for SDK initialization.
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
+
+**Testing Status**: Ready for manual testing via Navbar voice button
+- Click "Voice AI" → Allow mic → Speak complaint inquiry → See live transcript and tool responses

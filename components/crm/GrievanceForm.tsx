@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import axios from "axios";
 import { ComplaintCategory, Priority } from "@prisma/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -17,6 +18,7 @@ import {
   Info,
   Loader2
 } from "lucide-react";
+import FileUploader from "./FileUploader";
 
 const complaintSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -99,26 +101,20 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
     setIsSubmitting(true);
     setError(null);
     try {
-      const response = await fetch("/api/complaint", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const response = await axios.post("/api/complaint", {
           ...data,
           citizenId,
           locationLat: data.locationLat,
           locationLng: data.locationLng,
-        }),
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to submit grievance");
+      onSuccess(response.data.data);
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error ?? "Failed to submit grievance");
+      } else {
+        setError("Failed to submit grievance");
       }
-
-      onSuccess(result.data);
-    } catch (err: any) {
-      setError(err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -227,7 +223,7 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
                 </label>
                 <input
                   {...register("title")}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl border text-black border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   placeholder="Summarize the issue (e.g., Broken Streetlight near Central Park)"
                 />
                 {errors.title && <p className="mt-1 text-xs text-red-500">{errors.title.message}</p>}
@@ -239,10 +235,19 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
                 <textarea
                   {...register("description")}
                   rows={5}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+                  className="w-full px-4 py-3 rounded-xl border text-black border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
                   placeholder="Please provide as much detail as possible..."
                 />
                 {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description.message}</p>}
+              </div>
+              <div>
+                <FileUploader
+                  value={formData.photosUrls}
+                  onChange={(urls) => setValue("photosUrls", urls, { shouldValidate: true })}
+                  maxFiles={5}
+                  label="Attach Photos or Documents (Optional)"
+                  description="Upload photos, videos, or PDF evidence to support your complaint"
+                />
               </div>
             </motion.div>
           )}
@@ -263,7 +268,7 @@ export default function GrievanceForm({ citizenId, onSuccess }: GrievanceFormPro
                   <MapPin className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
                   <input
                     {...register("locationAddress")}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    className="w-full pl-12 pr-4 py-3 text-black rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                     placeholder="Enter full address or landmark"
                   />
                 </div>

@@ -1,13 +1,10 @@
 import {
   ClerkProvider,
-  SignInButton,
-  SignUpButton,
-  Show,
-  UserButton,
-  useUser,
 } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import ReduxProvider from "@/lib/redux/ReduxProvider";
+import Navbar from "@/components/layout/Navbar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CRM",
-  description: "CRM application",
+  title: "PS-CRM | Police & Public Services",
+  description: "Citizen Relationship Management for modern public governance.",
 };
 
 export default function RootLayout({
@@ -32,20 +29,16 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" className="scroll-smooth">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          className={`${geistSans.variable} ${geistMono.variable} antialiased selection:bg-indigo-100 selection:text-indigo-900`}
         >
-          <header className="flex justify-end items-center p-4 gap-4 h-16 border-b">
-            <Show when="signed-out">
-              <SignInButton />
-              <SignUpButton />
-            </Show>
-            <Show when="signed-in">
-              <UserButton />
-            </Show>
-          </header>
-          {children}
+          <ReduxProvider>
+            <Navbar />
+            <main className="relative pt-20">
+              {children}
+            </main>
+          </ReduxProvider>
         </body>
       </html>
     </ClerkProvider>

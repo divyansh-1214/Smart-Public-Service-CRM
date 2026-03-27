@@ -1,0 +1,243 @@
+﻿
+> crm@0.1.0 lint
+> eslint
+
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\admin\analytics\page.tsx
+  18:10  warning  'format' is defined but never used        @typescript-eslint/no-unused-vars
+  18:18  warning  'subDays' is defined but never used       @typescript-eslint/no-unused-vars
+  22:38  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\admin\complaint\[id]\page.tsx
+   13:3   warning  'CheckCircle2' is defined but never used                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   16:3   warning  'Settings' is defined but never used                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   21:27  warning  'Priority' is defined but never used                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   27:46  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   28:46  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   34:62  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   38:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array                                                                                                                                                                             react-hooks/exhaustive-deps
+  166:25  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\admin\departments\page.tsx
+   8:3   warning  'MapPin' is defined but never used        @typescript-eslint/no-unused-vars
+  11:3   warning  'ChevronRight' is defined but never used  @typescript-eslint/no-unused-vars
+  20:50  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:50  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  74:27  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\admin\page.tsx
+  106:10  warning  'error' is assigned a value but never used                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  146:14  warning  'err' is defined but never used                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  155:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array                                                                                                                                                                             react-hooks/exhaustive-deps
+  163:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array                                                                                                                                                                             react-hooks/exhaustive-deps
+  197:14  warning  'err' is defined but never used                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  209:14  warning  'err' is defined but never used                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  271:57  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  289:19  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\api\agents\route.ts
+  50:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\api\complaint\assign\[id]\route.ts
+  157:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\api\complaint\resolve\[id]\route.ts
+  7:27  warning  '_request' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\api\complaint\route.ts
+  13:7  warning  'COMPLAINT_CATEGORIES' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  14:7  warning  'PRIORITIES' is assigned a value but never used            @typescript-eslint/no-unused-vars
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\api\department\route.ts
+  17:7  warning  'updateDepartmentSchema' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\api\upload\route.ts
+   16:3   warning  'CloudinaryUploadResult' is defined but never used  @typescript-eslint/no-unused-vars
+   22:3   warning  'MAX_FILES_PER_UPLOAD' is defined but never used    @typescript-eslint/no-unused-vars
+  128:14  warning  'err' is defined but never used                     @typescript-eslint/no-unused-vars
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\api\wards\route.ts
+   5:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  10:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  86:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\complaint\[id]\page.tsx
+   11:3   warning  'ChevronRight' is defined but never used                                                                                                               @typescript-eslint/no-unused-vars
+   22:46  error    Unexpected any. Specify a different type                                                                                                               @typescript-eslint/no-explicit-any
+   23:46  error    Unexpected any. Specify a different type                                                                                                               @typescript-eslint/no-explicit-any
+   60:9   error    Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+   70:11  error    Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+  148:70  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                        react/no-unescaped-entities
+  148:92  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                        react/no-unescaped-entities
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\dashboard\page.tsx
+    7:3   warning  'Search' is defined but never used                                                                                                                             @typescript-eslint/no-unused-vars
+    8:3   warning  'Bell' is defined but never used                                                                                                                               @typescript-eslint/no-unused-vars
+   14:3   warning  'Settings' is defined but never used                                                                                                                           @typescript-eslint/no-unused-vars
+   34:40  error    Unexpected any. Specify a different type                                                                                                                       @typescript-eslint/no-explicit-any
+   37:10  warning  'unreadCount' is assigned a value but never used                                                                                                               @typescript-eslint/no-unused-vars
+  108:13  error    Do not use an `<a>` element to navigate to `/sign-in/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+  114:13  error    Do not use an `<a>` element to navigate to `/sign-up/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+  181:57  error    Unexpected any. Specify a different type                                                                                                                       @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\feedback\page.tsx
+   6:3   warning  'ShieldCheck' is defined but never used   @typescript-eslint/no-unused-vars
+  12:3   warning  'ChevronRight' is defined but never used  @typescript-eslint/no-unused-vars
+  76:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\notifications\page.tsx
+   19:54  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   73:44  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  170:41  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\page.tsx
+    8:3    warning  'BarChart3' is defined but never used                            @typescript-eslint/no-unused-vars
+   15:3    warning  'Search' is defined but never used                               @typescript-eslint/no-unused-vars
+   16:3    warning  'Clock' is defined but never used                                @typescript-eslint/no-unused-vars
+   18:3    warning  'Menu' is defined but never used                                 @typescript-eslint/no-unused-vars
+   19:3    warning  'X' is defined but never used                                    @typescript-eslint/no-unused-vars
+   25:3    warning  'FileText' is defined but never used                             @typescript-eslint/no-unused-vars
+   48:7    warning  'StatusBadge' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+  251:38   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  411:19   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  411:74   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  411:88   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  411:147  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\worker\complaint\[id]\page.tsx
+  11:3   warning  'ChevronRight' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+  12:3   warning  'AlertCircle' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+  14:3   warning  'User' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+  16:3   warning  'Settings' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+  17:3   warning  'X' is defined but never used                                                                                 @typescript-eslint/no-unused-vars
+  18:3   warning  'Plus' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+  25:27  warning  'Priority' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+  31:46  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  32:46  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  39:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\worker\dashboard\page.tsx
+   27:48  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   37:15  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  123:71  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\worker\layout.tsx
+  17:3   warning  'Bell' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+  18:3   warning  'Search' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  19:3   warning  'User' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+  20:3   warning  'Settings' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+  21:3   warning  'MessageSquare' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  25:11  warning  'user' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  25:17  warning  'isLoaded' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+  32:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\worker\layout.tsx:32:5
+  30 |   // Close mobile menu on route change
+  31 |   useEffect(() => {
+> 32 |     setIsMobileMenuOpen(false);
+     |     ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |   }, [pathname]);
+  34 |
+  35 |   const navItems = [  react-hooks/set-state-in-effect
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\worker\leave\page.tsx
+    8:3   warning  'Clock' is defined but never used                                @typescript-eslint/no-unused-vars
+    9:3   warning  'CheckCircle2' is defined but never used                         @typescript-eslint/no-unused-vars
+   12:3   warning  'ArrowLeft' is defined but never used                            @typescript-eslint/no-unused-vars
+   13:3   warning  'ChevronRight' is defined but never used                         @typescript-eslint/no-unused-vars
+   22:40  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   32:46  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  147:72  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\worker\page.tsx
+  7:10  warning  'format' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\app\worker\sync\page.tsx
+   7:3   warning  'ShieldCheck' is defined but never used                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  11:3   warning  'ChevronRight' is defined but never used                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  12:3   warning  'User' is defined but never used                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+  22:46  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  57:13  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\crm\CRMMap.tsx
+   17:31  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+   20:18  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  221:6   warning  React Hook useEffect has a missing dependency: 'selectedWard'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  226:45  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\crm\ComplaintTracker.tsx
+    7:3   warning  'Filter' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+   12:3   warning  'ExternalLink' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+   72:6   warning  React Hook useEffect has a missing dependency: 'fetchComplaints'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  148:45  error    Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\crm\DashboardStats.tsx
+  31:25  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\crm\DashboardStats.tsx:31:25
+  29 |   const [count, setCount] = useState(0);
+  30 |   useEffect(() => {
+> 31 |     if (target === 0) { setCount(0); return; }
+     |                         ^^^^^^^^ Avoid calling setState() directly within an effect
+  32 |     const steps = 40;
+  33 |     const stepValue = target / steps;
+  34 |     let current = 0;  react-hooks/set-state-in-effect
+  49:42  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\crm\FileUploader.tsx
+   26:12  warning  'ImageIcon' is defined but never used                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+   60:3   warning  'value' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  223:11  warning  'errorCount' is assigned a value but never used                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  259:5   warning  React Hook useCallback has missing dependencies: 'uploadFile' and 'validateFile'. Either include them or remove the dependency array                                                                                                                                                     react-hooks/exhaustive-deps
+  379:19  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\crm\GrievanceForm.tsx
+  16:3   warning  'Camera' is defined but never used        @typescript-eslint/no-unused-vars
+  38:26  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\crm\QuickComplaintForm.tsx
+   40:27  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+   75:20  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\crm\QuickComplaintForm.tsx:75:20
+  73 |   });
+  74 |
+> 75 |   const formData = watch();
+     |                    ^^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.
+  76 |   const hasLocation = formData.locationLat && formData.locationLng;
+  77 |
+  78 |   // Auto-detect location on mount  react-hooks/incompatible-library
+   81:6   warning  React Hook useEffect has a missing dependency: 'detectLocation'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+  349:48  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react/no-unescaped-entities
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\crm\VapiButton.tsx
+   9:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  20:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\components\layout\Navbar.tsx
+  19:3  warning  'Users' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\lib\cloudinary.ts
+  116:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Ankur\Documents\GitHub\PS-CRM\lib\redis.ts
+  4:3  warning  Unused eslint-disable directive (no problems were reported from 'no-var')
+
+Γ£û 130 problems (55 errors, 75 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+
