@@ -365,17 +365,17 @@ const App = () => {
       </section>
 
       {/* Trust Section */}
-      <section id="security" className="py-32 bg-white overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <div className="bg-slate-900 rounded-[4rem] p-12 lg:p-24 relative overflow-hidden">
-            <div className="relative z-10 grid lg:grid-cols-2 gap-24 items-center">
+      <section id="security" className="py-16 md:py-32 bg-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+          <div className="bg-slate-900 rounded-3xl md:rounded-[4rem] p-6 sm:p-12 lg:p-24 relative overflow-hidden">
+            <div className="relative z-10 grid lg:grid-cols-2 gap-12 md:gap-24 items-center">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
               >
-                <h2 className="text-4xl lg:text-6xl font-black text-white mb-8 leading-tight tracking-tighter uppercase">Infrastructure <br /> of Trust.</h2>
-                <p className="text-slate-400 text-xl mb-12 leading-relaxed font-medium">
+                <h2 className="text-3xl md:text-4xl lg:text-6xl font-black text-white mb-6 md:mb-8 leading-tight tracking-tighter uppercase">Infrastructure <br /> of Trust.</h2>
+                <p className="text-base md:text-xl text-slate-400 mb-8 md:mb-12 leading-relaxed font-medium">
                   Every action, assignment, and escalation is immutable. From Clerk-backed identity to multi-level audit trails, we ensure absolute integrity.
                 </p>
                 <div className="space-y-6">
@@ -398,16 +398,16 @@ const App = () => {
                 initial={{ opacity: 0, x: 20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                className="bg-white/5 backdrop-blur-2xl rounded-[3rem] p-12 border border-white/10"
+                className="bg-white/5 backdrop-blur-2xl rounded-2xl md:rounded-[3rem] p-6 md:p-12 border border-white/10"
               >
-                <div className="flex items-center gap-5 mb-10">
+                <div className="flex items-center gap-4 md:gap-5 mb-6 md:mb-10">
                   <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-2xl shadow-indigo-500/20">PS</div>
                   <div>
                     <div className="text-white font-black uppercase tracking-widest text-sm">Strategic Board</div>
                     <div className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em]">Public Service Commission</div>
                   </div>
                 </div>
-                <p className="text-white text-2xl font-light italic leading-relaxed">
+                <p className="text-lg md:text-2xl text-white font-light italic leading-relaxed">
                   "The transformation has been radical. We no longer ask 'what happened'—the audit logs tell the story of resolution in real-time."
                 </p>
               </motion.div>
@@ -421,9 +421,9 @@ const App = () => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-white pt-32 pb-16 border-t border-slate-100">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <div className="grid md:grid-cols-4 gap-24 mb-24">
+      <footer className="bg-white pt-16 md:pt-32 pb-12 md:pb-16 border-t border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 md:gap-24 mb-12 md:mb-24">
             <div className="col-span-2">
               <div className="flex items-center gap-3 mb-10">
                 <div className="bg-slate-900 p-2 rounded-xl">
@@ -431,7 +431,7 @@ const App = () => {
                 </div>
                 <span className="text-2xl font-black tracking-tighter text-slate-900 uppercase">PS-CRM</span>
               </div>
-              <h3 className="text-4xl font-black tracking-tighter text-slate-900 mb-10 max-w-sm uppercase leading-[0.9]">
+              <h3 className="text-2xl md:text-4xl font-black tracking-tighter text-slate-900 mb-6 md:mb-10 max-w-sm uppercase leading-[0.9]">
                 Redefining Public <br /> <span className="text-indigo-600">Service.</span>
               </h3>
               <div className="flex gap-8">

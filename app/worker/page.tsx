@@ -53,6 +53,21 @@ export default function WorkerHomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingComplaints, setIsFetchingComplaints] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  const handleToggleStatus = async () => {
+    if (!worker) return;
+    setIsUpdatingStatus(true);
+    try {
+      const newStatus = worker.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+      await axios.patch("/api/worker/auth/status", { status: newStatus });
+      setWorker({ ...worker, status: newStatus });
+    } catch {
+      setErrorMessage("Failed to update status.");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   const fetchAssignedComplaints = async (officerId: string) => {
     setIsFetchingComplaints(true);
@@ -210,19 +225,41 @@ export default function WorkerHomePage() {
         <div className="relative flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Active Session</span>
+              <div className={`w-2 h-2 rounded-full animate-pulse ${worker.status === 'ACTIVE' ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                {worker.status === 'ACTIVE' ? 'Active Worker' : 'Inactive Worker'}
+              </span>
             </div>
             <h2 className="text-2xl md:text-3xl font-black tracking-tight">{worker.name}</h2>
             <p className="text-sm font-medium text-slate-400 mt-1">{worker.email}</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-rose-300 transition-all hover:bg-rose-500/20 hover:border-rose-400/50 active:scale-95"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleToggleStatus}
+              disabled={isUpdatingStatus}
+              className={`flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-xs font-black uppercase tracking-wide transition-all active:scale-95 disabled:opacity-60 ${
+                worker.status === "ACTIVE" 
+                  ? "border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:border-amber-400/50" 
+                  : "border-emerald-400/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400/50"
+              }`}
+            >
+              {isUpdatingStatus ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : worker.status === "ACTIVE" ? (
+                <Clock className="w-4 h-4" /> 
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              {worker.status === "ACTIVE" ? "Go Inactive" : "Go Active"}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-rose-300 transition-all hover:bg-rose-500/20 hover:border-rose-400/50 active:scale-95"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* Mini stats */}

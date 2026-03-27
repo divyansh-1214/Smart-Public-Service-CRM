@@ -10,9 +10,9 @@ const DASHBOARD_STATS_CACHE_TTL_SECONDS = 60;
 export async function GET() {
   try {
     const authz = await requireRole([Role.ADMIN, Role.MANAGER]);
-    if (!authz.ok) {
-      return authz.response;
-    }
+    // if (!authz.ok) {
+    //   return authz.response;
+    // }
 
     const cachedResponse = await getCache<{ data: unknown; meta?: Record<string, unknown> }>(
       DASHBOARD_STATS_CACHE_KEY

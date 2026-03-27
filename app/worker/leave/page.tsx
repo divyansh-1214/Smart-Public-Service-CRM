@@ -124,29 +124,29 @@ export default function WorkerLeavePage() {
           
           <div className="space-y-4">
             {leaves.length > 0 ? leaves.map((leave) => (
-              <div key={leave.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-blue-200 transition-all">
-                <div className="flex items-center gap-6">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+              <div key={leave.id} className="bg-white p-4 md:p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-blue-200 transition-all">
+                <div className="flex items-center gap-4 md:gap-6">
+                  <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
                     leave.approved ? "bg-emerald-600 shadow-emerald-100" : "bg-amber-600 shadow-amber-100"
                   } text-white`}>
-                    <Calendar className="w-7 h-7" />
+                    <Calendar className="w-5 h-5 md:w-7 md:h-7" />
                   </div>
                   <div>
-                    <h4 className="text-lg font-black text-gray-900 leading-none mb-2">
+                    <h4 className="text-sm md:text-lg font-black text-gray-900 leading-none mb-1 md:mb-2">
                       {format(new Date(leave.startDate), "MMM d")} - {format(new Date(leave.endDate), "MMM d, yyyy")}
                     </h4>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-xs">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[200px] md:max-w-xs">
                       {leave.reason || "No reason specified."}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
-                  <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                <div className="flex items-center gap-3 md:gap-6 ml-14 sm:ml-0">
+                  <div className={`px-3 md:px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                     leave.approved ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                   }`}>
-                    {leave.approved ? "Approved" : "Pending Approval"}
+                    {leave.approved ? "Approved" : "Pending"}
                   </div>
-                  <button className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-all">
+                  <button className="p-2 md:p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-all">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

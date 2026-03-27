@@ -490,6 +490,36 @@ Last updated: 2026-03-27
 
 ## Recent Changes (Session: 2026-03-27)
 
+### AI Complaint Category + Criticality Prediction
+
+**Objective**: Predict complaint category and criticality (priority) automatically during complaint creation.
+
+**Implementation**:
+1. **Prediction utility added** (`lib/agents/predict-complaint.ts`):
+  - New exported function: `predictComplaintCategoryAndCriticality(description)`.
+  - Prediction pipeline: Gemini (`gemini-2.5-flash-lite`) -> Groq (`llama-3.3-70b-versatile`) -> deterministic keyword fallback.
+  - Returns structured result:
+    - `predictedCategory` (`ComplaintCategory`)
+    - `predictedPriority` (`Priority`)
+    - `confidence` (0..1)
+    - `alternativeCategories`
+    - `modelVersion`
+
+2. **Complaint API integration** (`app/api/complaint/route.ts`, POST):
+  - API now calls prediction utility for every new complaint.
+  - If `category` is missing in request body, applies predicted category.
+  - If `priority` is missing in request body, applies predicted criticality.
+  - Existing clients can still provide explicit `category`/`priority` and those values are preserved.
+
+3. **Prediction persistence**:
+  - On complaint creation, writes AI category prediction metadata to `AICategoryPrediction` using best-effort async upsert.
+  - Persisted fields: `predictedCategory`, `confidence`, `alternativeCategories`, `modelVersion`.
+
+4. **Response metadata**:
+  - POST response now includes `meta.aiPrediction` with prediction details and whether predicted values were applied.
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
+
 ### Vapi Voice Assistant Integration
 
 **Objective**: Add real-time voice AI assistant for complaint management and status inquiries.
@@ -577,3 +607,76 @@ Last updated: 2026-03-27
   - If notification write fails, API still returns success for primary complaint action and logs error.
 
 **Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
+
+### Resolution Proof + Citizen Verification & Reopen
+
+**Objective**: Require workers to upload proof photos when resolving complaints. Allow citizens to view proof and reopen if work wasn't done.
+
+**Implementation**:
+1. **Schema changes** (`prisma/schema.prisma`):
+   - Added `resolutionProofUrls String[] @default([])` — proof photo URLs uploaded by worker
+   - Added `resolutionNote String?` — worker's description of work done
+
+2. **Resolve API update** (`app/api/complaint/resolve/[id]/route.ts`):
+   - `PATCH` now requires `resolutionProofUrls` (min 1 URL) via Zod validation
+   - Optional `resolutionNote` (max 2000 chars)
+   - Stores proof data on complaint record alongside RESOLVED status
+   - Notification message updated to ask citizen to verify
+
+3. **Reopen API** (`app/api/complaint/reopen/[id]/route.ts`) [NEW]:
+   - `PATCH /api/complaint/reopen/[id]` — citizen-only endpoint
+   - Auth: Clerk session required, must match `complaint.citizenId`
+   - Only allowed when status is `RESOLVED`
+   - Sets status to `IN_PROGRESS`, clears `resolvedAt` and `resolvedById`
+   - Accepts optional `reason` string (max 1000)
+   - Creates `reopened` audit log entry with reason metadata
+   - Sends `COMPLAINT_UPDATED` notification to assigned officer (best-effort)
+
+4. **Worker complaint detail UI** (`app/worker/complaint/[id]/page.tsx`):
+   - "Resolve Case" button now toggles a proof upload panel
+   - Uses existing `FileUploader` component for proof photos (max 5)
+   - Resolution note textarea (optional, max 2000 chars)
+   - Submit button disabled until at least 1 proof photo uploaded
+
+5. **Citizen complaint detail UI** (`app/complaint/[id]/page.tsx`):
+   - When status is `RESOLVED`, shows "Resolution Proof" section with:
+     - Officer's proof photos in image grid
+     - Officer's resolution note (if provided)
+   - "Work Not Done — Reopen Complaint" button with optional reason textarea
+   - Reopen calls `PATCH /api/complaint/reopen/[id]` and refreshes page
+   - Timeline now shows `reopened` action entries with reason metadata
+
+6. **Worker self-status toggle** (`app/api/worker/auth/status/route.ts`) [NEW]:
+   - Workers can mark themselves ACTIVE/INACTIVE from the worker portal
+   - Login and session routes updated to allow INACTIVE workers to authenticate
+   - UI toggle button in worker dashboard header
+
+**Build/Diagnostics Status**: ✅ Schema + API + frontend changes complete. Run `npx prisma db push && npx prisma generate` before testing.
+
+### Community Public Complaints Feed
+
+**Objective**: Create a public community section where everyone can view shared complaints and filter the feed.
+
+**Implementation**:
+1. **Community API** (`app/api/community/route.ts`) [NEW]:
+  - `GET /api/community` returns only `isPublic = true` complaints.
+  - Supports filters:
+    - `q` (search in title/description/address/ward/citizen name)
+    - `status` (`ComplaintStatus`)
+    - `priority` (`Priority`)
+    - `category` (`ComplaintCategory`)
+    - `departmentName` (`DepartmentName`)
+    - `ward` (partial match)
+    - `citizenId` (single user filter)
+    - `from` / `to` (date range)
+    - `sort` (`newest` | `oldest` | `priority`)
+    - `page` / `limit` (pagination)
+  - Uses Zod query validation and returns `{ data, meta }` with `total` and `totalPages`.
+
+2. **Community page route** (`app/community/page.tsx`) [NEW]:
+  - Public UI for browsing community complaints.
+  - Filter controls for search, status, priority, category, department, ward, and sort.
+  - Card-based responsive feed with complaint metadata and pagination controls.
+  - Fetches data from `/api/community` using axios with debounced updates.
+
+**Build/Diagnostics Status**: ✅ New route and page pass diagnostics in-session.

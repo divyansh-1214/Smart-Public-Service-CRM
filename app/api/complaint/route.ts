@@ -5,6 +5,7 @@ import { classifyDepartmentWithAgent } from "@/lib/agents/classifier";
 import { ComplaintCategory, ComplaintStatus, DepartmentName, Priority } from "@prisma/client";
 import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
 import {decideDiscription} from "@/lib/agents/classifydep";
+import { predictComplaintCategoryAndCriticality } from "@/lib/agents/predict-complaint";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { getCache, setCache } from "@/lib/cache";
 import { buildRedisKey } from "@/lib/request-helpers";
@@ -16,10 +17,10 @@ const COMPLAINT_STATUSES = Object.values(ComplaintStatus);
 
 const createComplaintSchema = z.object({
   citizenId: z.string().cuid(),
-  category: z.nativeEnum(ComplaintCategory),
+  category: z.nativeEnum(ComplaintCategory).optional(),
   title: z.string().trim().min(3).max(150),
   description: z.string().trim().min(10).max(4000),
-  priority: z.nativeEnum(Priority).optional().default("MEDIUM"),
+  priority: z.nativeEnum(Priority).optional(),
   locationAddress: z.string().trim().min(3).max(250).optional(),
   locationLat: z.number().min(-90).max(90).optional(),
   locationLng: z.number().min(-180).max(180).optional(),
@@ -277,6 +278,13 @@ export async function POST(request: NextRequest) {
 
     const payload = parsed.data;
 
+    const aiPrediction = await predictComplaintCategoryAndCriticality(
+      payload.description,
+    );
+
+    const resolvedCategory = payload.category ?? aiPrediction.predictedCategory;
+    const resolvedPriority = payload.priority ?? aiPrediction.predictedPriority;
+
     const citizen = await prisma.user.findUnique({
       where: { id: payload.citizenId },
       select: { id: true, isActive: true },
@@ -333,10 +341,10 @@ export async function POST(request: NextRequest) {
     const complaint = await prisma.complaint.create({
       data: {
         citizenId: payload.citizenId,
-        category: payload.category,
+        category: resolvedCategory,
         title: payload.title,
         description: payload.description,
-        priority: payload.priority,
+        priority: resolvedPriority,
         DEPARTMENT_NAME: department.name,
         departmentId: department.id,
         locationAddress: payload.locationAddress,
@@ -355,10 +363,41 @@ export async function POST(request: NextRequest) {
       // }
     });
 
+    prisma.aICategoryPrediction
+      .upsert({
+        where: { complaintId: complaint.id },
+        create: {
+          complaintId: complaint.id,
+          predictedCategory: aiPrediction.predictedCategory,
+          confidence: aiPrediction.confidence,
+          alternativeCategories: aiPrediction.alternativeCategories,
+          modelVersion: aiPrediction.modelVersion,
+        },
+        update: {
+          predictedCategory: aiPrediction.predictedCategory,
+          confidence: aiPrediction.confidence,
+          alternativeCategories: aiPrediction.alternativeCategories,
+          modelVersion: aiPrediction.modelVersion,
+        },
+      })
+      .catch((predictionError) => {
+        console.error("[POST /api/complaint] failed to persist AI prediction", predictionError);
+      });
+
     return NextResponse.json(
       {
         message: "Complaint submitted successfully",
         data: complaint,
+        meta: {
+          aiPrediction: {
+            predictedCategory: aiPrediction.predictedCategory,
+            predictedPriority: aiPrediction.predictedPriority,
+            confidence: aiPrediction.confidence,
+            modelVersion: aiPrediction.modelVersion,
+            appliedCategory: !payload.category,
+            appliedPriority: !payload.priority,
+          },
+        },
       },
       { status: 201 },
     );

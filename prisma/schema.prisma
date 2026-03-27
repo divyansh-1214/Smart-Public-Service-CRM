@@ -315,6 +315,10 @@ model Complaint {
   duplicateOf       Complaint?      @relation("DuplicateComplaints", fields: [duplicateOfId], references: [id], onDelete: SetNull)
   duplicates        Complaint[]     @relation("DuplicateComplaints")
 
+  // NEW: resolution proof uploaded by worker when resolving
+  resolutionProofUrls String[]       @default([])
+  resolutionNote      String?
+
   // NEW: internal officer notes (not visible to citizen)
   internalNotes     String?
 

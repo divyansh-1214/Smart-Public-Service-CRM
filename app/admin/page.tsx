@@ -252,7 +252,7 @@ export default function AdminDashboard() {
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         w-64 bg-white border-r border-slate-100
         transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
-        hidden md:flex flex-col sticky top-0 h-screen shadow-xl md:shadow-none
+        flex flex-col sticky top-0 h-screen shadow-xl md:shadow-none
       `}>
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 shrink-0">
@@ -262,6 +262,12 @@ export default function AdminDashboard() {
             <h1 className="text-lg font-black text-slate-900 tracking-tighter leading-none">PS-CRM</h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Admin Panel</p>
           </div>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="ml-auto md:hidden p-1.5 hover:bg-slate-50 rounded-xl text-slate-400 transition-all"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <nav className="flex-1 p-4 space-y-1.5">

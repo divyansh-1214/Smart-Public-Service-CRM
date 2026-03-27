@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ComplaintStatus, NotificationType } from "@prisma/client";
 import { getWorkerSessionFromRequest } from "@/lib/worker-auth";
+import { z } from "zod";
+
+const resolveSchema = z.object({
+  resolutionProofUrls: z
+    .array(z.string().url())
+    .min(1, "At least one proof image is required"),
+  resolutionNote: z.string().max(2000).optional(),
+});
 
 // This route handles fetching unresolved complaints and marking a complaint as resolved.
 export async function GET(
@@ -39,6 +47,15 @@ export async function PATCH(
     const { id } = await params;
     const workerSession = getWorkerSessionFromRequest(request);
 
+    const body = await request.json().catch(() => null);
+    const parsed = resolveSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Proof of resolution is required", issues: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
     if (workerSession) {
       const complaint = await prisma.complaint.findUnique({
         where: { id },
@@ -65,6 +82,8 @@ export async function PATCH(
       data: {
         status: ComplaintStatus.RESOLVED,
         resolvedAt: new Date(),
+        resolutionProofUrls: parsed.data.resolutionProofUrls,
+        resolutionNote: parsed.data.resolutionNote ?? null,
         ...(workerSession ? { resolvedById: workerSession.officerId } : {}),
       },
       select: {
@@ -73,6 +92,8 @@ export async function PATCH(
         citizenId: true,
         status: true,
         resolvedAt: true,
+        resolutionProofUrls: true,
+        resolutionNote: true,
       },
     });
 
@@ -81,7 +102,7 @@ export async function PATCH(
         data: {
           userId: updatedComplaint.citizenId,
           type: NotificationType.COMPLAINT_RESOLVED,
-          message: `Your complaint "${updatedComplaint.title}" has been resolved.`,
+          message: `Your complaint "${updatedComplaint.title}" has been resolved. Please verify the resolution proof.`,
           complaintId: updatedComplaint.id,
           channels: ["in_app"],
           deliveredAt: new Date(),
@@ -92,10 +113,12 @@ export async function PATCH(
           .create({
             data: {
               complaintId: updatedComplaint.id,
-              updatedBy: "system",
-              action: "notification_sent",
+              updatedBy: workerSession?.officerId ?? "system",
+              action: "resolved",
+              newValue: "RESOLVED",
               metadata: {
                 type: NotificationType.COMPLAINT_RESOLVED,
+                proofCount: parsed.data.resolutionProofUrls.length,
                 recipients: [updatedComplaint.citizenId],
               },
             },
