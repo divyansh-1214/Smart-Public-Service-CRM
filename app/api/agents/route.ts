@@ -15,23 +15,75 @@ export async function GET(){
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, description } = await request.json();
-    console.log("Received agent data:", { name, description });
-  }
-    catch (error) {
+    const payload = await request.json();
+    console.log("Received agent payload:", JSON.stringify(payload, null, 2));
+
+    // Handle Vapi tool calls
+    if (payload.message?.type === "tool-calls" && payload.message.toolWithToolCallList) {
+      const results = [];
+
+      for (const item of payload.message.toolWithToolCallList) {
+        const toolCall = item.toolCall;
+        const functionName = toolCall.function.name;
+        const args = JSON.parse(toolCall.function.arguments || "{}");
+
+        console.log(`Executing tool: ${functionName}`, args);
+
+        let resultData = "Tool execution failed or not found.";
+
+        if (functionName === "checkComplaintStatus") {
+          // Implement standard complaint status check
+          const complaintId = args.complaintId;
+          if (complaintId) {
+            try {
+              const { prisma } = await import("@/lib/prisma");
+              const complaint = await prisma.complaint.findUnique({
+                where: { id: complaintId },
+                select: { status: true, title: true, priority: true }
+              });
+              
+              if (complaint) {
+                resultData = `The complaint "${complaint.title}" is currently marked as ${complaint.status} with a priority of ${complaint.priority}.`;
+              } else {
+                resultData = `Sorry, I could not find a complaint with ID ${complaintId}.`;
+              }
+            } catch (err: unknown) {
+              console.error("DB error finding complaint:", err);
+              resultData = `Error looking up complaint: ${err instanceof Error ? err.message : String(err)}`;
+            }
+          } else {
+            resultData = "Please provide a valid complaint ID.";
+          }
+        } else if (functionName === "createComplaint") {
+          // Stub for creating a complaint
+          resultData = "Creating complaints via voice is recorded. Our team will review the details.";
+        } else {
+          resultData = `The tool ${functionName} is not implemented on the server.`;
+        }
+
+        results.push({
+          toolCallId: toolCall.id,
+          result: resultData,
+        });
+      }
+
+      // Return the array of results for each tool call
+      return NextResponse.json({ results });
+    }
+
+    // Default response for other message types (e.g. status-update, end-of-call-report)
+    return NextResponse.json({
+      status: "ok",
+      message: "Agent data received successfully",
+    });
+  } catch (error) {
     console.error("Error parsing agent data:", error);
     return NextResponse.json(
       {
         status: "error",
-        message:
-          error instanceof Error ? error.message : "Unknown error parsing agent data",
+        message: error instanceof Error ? error.message : "Unknown error parsing agent data",
       },
       { status: 400 }
     );
   }
-  return NextResponse.json(
-    {
-      status: "ok",
-        message: "Agent data received successfully",
-    });
 }

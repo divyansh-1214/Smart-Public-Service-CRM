@@ -16,10 +16,9 @@ import {
   X, 
   ChevronRight,
   LayoutDashboard,
-  ShieldAlert,
-  Users,
   Bell
 } from "lucide-react";
+import VapiButton from "@/components/crm/VapiButton";
 
 const Navbar = () => {
   const pathname = usePathname();
@@ -91,6 +90,7 @@ const Navbar = () => {
               <div className="h-6 w-px bg-slate-100 mx-2" />
 
               <div className="flex items-center gap-4">
+                <VapiButton />
                 {!isSignedIn && (
                   <>
                     <SignInButton mode="modal">
@@ -131,6 +131,7 @@ const Navbar = () => {
 
             {/* Mobile Toggle */}
             <div className="md:hidden flex items-center gap-4">
+              <VapiButton />
               {isSignedIn && (
                 <UserButton />
               )}
