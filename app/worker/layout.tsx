@@ -35,7 +35,7 @@ export default function WorkerLayout({ children }: { children: React.ReactNode }
   const navItems = [
     { 
       label: "Dashboard", 
-      href: "/worker/dashboard", 
+      href: "/worker", 
       icon: LayoutDashboard,
       description: "Overview & Active Tasks"
     },
@@ -45,12 +45,12 @@ export default function WorkerLayout({ children }: { children: React.ReactNode }
       icon: Calendar,
       description: "Request & Track Time Off"
     },
-    { 
-      label: "Account Sync", 
-      href: "/worker/sync", 
-      icon: RefreshCw,
-      description: "Update Profile & Role"
-    },
+    // { 
+    //   label: "Account Sync", 
+    //   href: "/worker/sync", 
+    //   icon: RefreshCw,
+    //   description: "Update Profile & Role"
+    // },
     // { 
     //   label: "Worker", 
     //   href: "/worker", 

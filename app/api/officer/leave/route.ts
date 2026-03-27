@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
@@ -106,7 +107,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { error: "Request body must be a valid JSON object" },
+        { status: 400 },
+      );
+    }
+
     const parsed = createLeaveSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -117,6 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { officerId, startDate, endDate, reason } = parsed.data;
+    const normalizedReason = reason?.trim() ? reason.trim() : null;
 
     // Verify officer exists
     const officer = await prisma.officer.findUnique({
@@ -128,6 +137,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: `Officer with id ${officerId} not found` },
         { status: 404 },
+      );
+    }
+
+    if (officer.status !== "ACTIVE") {
+      return NextResponse.json(
+        { error: "Only active officers can request leave" },
+        { status: 400 },
       );
     }
 
@@ -161,19 +177,8 @@ export async function POST(request: NextRequest) {
         officerId,
         startDate,
         endDate,
-        reason,
+        reason: normalizedReason,
         approved: false, // Requires explicit approval via PATCH
-      },
-      include: {
-        officer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            position: true,
-            department: { select: { id: true, name: true } },
-          },
-        },
       },
     });
 
@@ -183,8 +188,38 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("[POST /api/officer/leave]", error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2003") {
+        return NextResponse.json(
+          { error: "Invalid officer reference for leave request" },
+          { status: 400 },
+        );
+      }
+
+      if (error.code === "P2022") {
+        return NextResponse.json(
+          {
+            error:
+              "Database schema is out of sync for officer leaves. Run Prisma schema sync/migration and retry.",
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    const fallbackMessage =
+      error instanceof Error ? error.message : "Failed to submit leave request";
+
     return NextResponse.json(
-      { error: "Failed to submit leave request" },
+      {
+        error: fallbackMessage,
+        ...(process.env.NODE_ENV !== "production" && {
+          debug: {
+            name: error instanceof Error ? error.name : "UnknownError",
+          },
+        }),
+      },
       { status: 500 },
     );
   }

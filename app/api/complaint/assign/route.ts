@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { OfficerStatus } from "@prisma/client";
+import { NotificationType, OfficerStatus } from "@prisma/client";
 import { z } from "zod";
 
 // Local enum definition since it may not be exported from @prisma/client
@@ -31,6 +31,78 @@ const updateAssignmentSchema = z
       path: ["outcome"],
     }
   );
+
+async function sendAssignmentNotifications(input: {
+  complaintId: string;
+  complaintTitle: string;
+  citizenId: string;
+  officerId: string;
+  officerName: string;
+  officerEmail: string;
+}) {
+  const {
+    complaintId,
+    complaintTitle,
+    citizenId,
+    officerId,
+    officerName,
+    officerEmail,
+  } = input;
+
+  const workerUser = await prisma.user.findFirst({
+    where: {
+      email: officerEmail,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  const rows: Array<{
+    userId: string;
+    type: NotificationType;
+    message: string;
+    complaintId: string;
+    channels: string[];
+    deliveredAt: Date;
+  }> = [
+    {
+      userId: citizenId,
+      type: NotificationType.COMPLAINT_ASSIGNED,
+      message: `Your complaint "${complaintTitle}" has been assigned to worker ${officerName}.`,
+      complaintId,
+      channels: ["in_app"],
+      deliveredAt: new Date(),
+    },
+  ];
+
+  if (workerUser && workerUser.id !== citizenId) {
+    rows.push({
+      userId: workerUser.id,
+      type: NotificationType.COMPLAINT_ASSIGNED,
+      message: `You have been assigned complaint "${complaintTitle}".`,
+      complaintId,
+      channels: ["in_app"],
+      deliveredAt: new Date(),
+    });
+  }
+
+  await prisma.notification.createMany({ data: rows });
+
+  await prisma.auditLog
+    .create({
+      data: {
+        complaintId,
+        updatedBy: "system",
+        action: "notification_sent",
+        metadata: {
+          type: NotificationType.COMPLAINT_ASSIGNED,
+          recipients: rows.map((row) => row.userId),
+          assignedOfficerId: officerId,
+        },
+      },
+    })
+    .catch(() => null);
+}
 
 export async function GET() {
   try {
@@ -85,7 +157,7 @@ export async function POST(request: NextRequest) {
 
     const complaint = await prisma.complaint.findUnique({
       where: { id: complaintId },
-      select: { id: true, departmentId: true },
+      select: { id: true, departmentId: true, citizenId: true, title: true },
     });
 
     if (!complaint) {
@@ -94,7 +166,7 @@ export async function POST(request: NextRequest) {
 
     const officer = await prisma.officer.findUnique({
       where: { id: officerId },
-      select: { id: true, departmentId: true, status: true },
+      select: { id: true, departmentId: true, status: true, name: true, email: true },
     });
 
     if (!officer) {
@@ -189,6 +261,17 @@ export async function POST(request: NextRequest) {
         deadline,
       };
     }
+
+    sendAssignmentNotifications({
+      complaintId: complaint.id,
+      complaintTitle: complaint.title,
+      citizenId: complaint.citizenId,
+      officerId: officer.id,
+      officerName: officer.name,
+      officerEmail: officer.email,
+    }).catch((notificationError) => {
+      console.error("[POST /api/complaint/assign] notification error", notificationError);
+    });
 
     return NextResponse.json(
       {

@@ -1,53 +1,45 @@
 "use client";
-
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
 import { 
   Calendar, 
   Plus, 
-  Clock, 
   CheckCircle2, 
   X, 
   AlertCircle,
-  ArrowLeft,
-  ChevronRight,
   Loader2,
   Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import axios from "axios";
+import { useAppSelector } from "@/lib/redux/store";
+import { selectOfficerId } from "@/lib/redux/slices/authSlice";
 
 export default function WorkerLeavePage() {
-  const { user, isLoaded } = useUser();
+  const officerId = useAppSelector(selectOfficerId);
   const [leaves, setLeaves] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   // Form states
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const [dbOfficer, setDbOfficer] = useState<any>(null);
-
   useEffect(() => {
-    if (isLoaded && user) {
-      syncAndFetchLeaves();
+    if (!officerId) {
+      setLeaves([]);
+      setLoading(false);
+      return;
     }
-  }, [isLoaded, user]);
+    void fetchLeaves(officerId);
+  }, [officerId]);
 
-  async function syncAndFetchLeaves() {
+  async function fetchLeaves(currentOfficerId: string) {
     try {
       setLoading(true);
-      // Get DB officer ID first
-      const syncRes = await axios.post("/api/worker/sync");
-      
-      const officer = syncRes.data?.data;
-      setDbOfficer(officer);
-
-      // Now fetch leaves specifically for this officer
-      const res = await axios.get(`/api/officer/leave?officerId=${officer.id}`);
+      const res = await axios.get(`/api/officer/leave?officerId=${currentOfficerId}`);
       setLeaves(res.data?.data ?? []);
     } catch (error) {
       console.error("Error fetching leaves:", error);
@@ -58,22 +50,41 @@ export default function WorkerLeavePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!dbOfficer) return;
-    
+    setSubmitError(null);
+
+    if (!officerId) {
+      setSubmitError("Worker session missing. Please login again.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       await axios.post("/api/officer/leave", {
         startDate: new Date(startDate).toISOString(),
         endDate: new Date(endDate).toISOString(),
         reason,
-        officerId: dbOfficer.id
+        officerId,
       });
 
       setIsModalOpen(false);
       resetForm();
-      syncAndFetchLeaves();
+      await fetchLeaves(officerId);
     } catch (error) {
-      console.error("Error submitting leave:", error);
+      if (axios.isAxiosError(error)) {
+        console.error("Error submitting leave:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+        const apiMessage =
+          (error.response?.data as { error?: string; message?: string })?.error ??
+          (error.response?.data as { error?: string; message?: string })?.message ??
+          error.message;
+        setSubmitError(apiMessage || "Failed to submit leave request.");
+      } else {
+        console.error("Error submitting leave:", error);
+        setSubmitError("Failed to submit leave request.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -83,8 +94,8 @@ export default function WorkerLeavePage() {
     setStartDate("");
     setEndDate("");
     setReason("");
+    setSubmitError(null);
   };
-
   if (loading) return null;
 
   return (
@@ -246,6 +257,12 @@ export default function WorkerLeavePage() {
                   required
                 />
               </div>
+
+              {submitError && (
+                <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                  {submitError}
+                </div>
+              )}
 
               <button 
                 type="submit"
