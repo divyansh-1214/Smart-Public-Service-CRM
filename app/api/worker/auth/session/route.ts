@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!officer || officer.status !== OfficerStatus.ACTIVE) {
+    if (!officer || (officer.status !== OfficerStatus.ACTIVE && officer.status !== OfficerStatus.INACTIVE)) {
       return NextResponse.json({ error: "Worker session invalid" }, { status: 401 });
     }
 

@@ -490,6 +490,36 @@ Last updated: 2026-03-27
 
 ## Recent Changes (Session: 2026-03-27)
 
+### AI Complaint Category + Criticality Prediction
+
+**Objective**: Predict complaint category and criticality (priority) automatically during complaint creation.
+
+**Implementation**:
+1. **Prediction utility added** (`lib/agents/predict-complaint.ts`):
+  - New exported function: `predictComplaintCategoryAndCriticality(description)`.
+  - Prediction pipeline: Gemini (`gemini-2.5-flash-lite`) -> Groq (`llama-3.3-70b-versatile`) -> deterministic keyword fallback.
+  - Returns structured result:
+    - `predictedCategory` (`ComplaintCategory`)
+    - `predictedPriority` (`Priority`)
+    - `confidence` (0..1)
+    - `alternativeCategories`
+    - `modelVersion`
+
+2. **Complaint API integration** (`app/api/complaint/route.ts`, POST):
+  - API now calls prediction utility for every new complaint.
+  - If `category` is missing in request body, applies predicted category.
+  - If `priority` is missing in request body, applies predicted criticality.
+  - Existing clients can still provide explicit `category`/`priority` and those values are preserved.
+
+3. **Prediction persistence**:
+  - On complaint creation, writes AI category prediction metadata to `AICategoryPrediction` using best-effort async upsert.
+  - Persisted fields: `predictedCategory`, `confidence`, `alternativeCategories`, `modelVersion`.
+
+4. **Response metadata**:
+  - POST response now includes `meta.aiPrediction` with prediction details and whether predicted values were applied.
+
+**Build/Diagnostics Status**: ✅ Touched files pass diagnostics in-session.
+
 ### Vapi Voice Assistant Integration
 
 **Objective**: Add real-time voice AI assistant for complaint management and status inquiries.

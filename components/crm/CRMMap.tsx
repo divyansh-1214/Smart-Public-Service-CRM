@@ -70,6 +70,7 @@ interface Props {
 export default function CRMMap({ leads }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const [selectedWard, setSelectedWard] = useState<string | null>(null);
   const [wardSearch, setWardSearch] = useState("");
   const [wardNames, setWardNames] = useState<string[]>([]);
@@ -77,6 +78,35 @@ export default function CRMMap({ leads }: Props) {
   const wardLayerRef = useRef<L.GeoJSON | null>(null);
   const zoneLayerRef = useRef<L.GeoJSON | null>(null);
   const complaintLayerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 900px)");
+
+    const updateViewport = () => {
+      setIsMobile(mediaQuery.matches);
+    };
+
+    updateViewport();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateViewport);
+      return () => mediaQuery.removeEventListener("change", updateViewport);
+    }
+
+    mediaQuery.addListener(updateViewport);
+    return () => mediaQuery.removeListener(updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Leaflet needs explicit invalidation when container dimensions change.
+    const resizeTimer = window.setTimeout(() => {
+      mapRef.current?.invalidateSize();
+    }, 120);
+
+    return () => window.clearTimeout(resizeTimer);
+  }, [isMobile]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -236,13 +266,21 @@ export default function CRMMap({ leads }: Props) {
   );
 
   return (
-    <div style={{ display: "flex", height: "600px", gap: "12px", position: "relative" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        height: isMobile ? "auto" : "600px",
+        gap: "12px",
+        position: "relative",
+      }}
+    >
       {mapError ? (
         <div
           style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
+            position: isMobile ? "relative" : "absolute",
+            top: isMobile ? undefined : 12,
+            right: isMobile ? undefined : 12,
             zIndex: 1000,
             background: "#fff1f2",
             color: "#9f1239",
@@ -250,7 +288,7 @@ export default function CRMMap({ leads }: Props) {
             borderRadius: "8px",
             padding: "8px 10px",
             fontSize: "12px",
-            maxWidth: "320px",
+            maxWidth: isMobile ? "100%" : "320px",
           }}
         >
           {mapError}
@@ -258,20 +296,41 @@ export default function CRMMap({ leads }: Props) {
       ) : null}
 
       {/* Ward search panel */}
-      <div style={{ width: "220px", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div
+        style={{
+          width: isMobile ? "100%" : "220px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          flexShrink: 0,
+        }}
+      >
         <input
           placeholder="Search ward..."
           value={wardSearch}
           onChange={(e) => setWardSearch(e.target.value)}
-          style={{ padding: "8px", borderRadius: "6px", border: "1px solid #ddd" }}
+          style={{
+            padding: "10px",
+            borderRadius: "6px",
+            border: "1px solid #ddd",
+            width: "100%",
+          }}
         />
-        <div style={{ overflowY: "auto", flex: 1, border: "1px solid #eee", borderRadius: "6px" }}>
+        <div
+          style={{
+            overflowY: "auto",
+            flex: 1,
+            maxHeight: isMobile ? "180px" : undefined,
+            border: "1px solid #eee",
+            borderRadius: "6px",
+          }}
+        >
           {filtered.map((ward) => (
             <div
               key={ward}
               onClick={() => flyToWard(ward)}
               style={{
-                padding: "8px 12px",
+                padding: "10px 12px",
                 cursor: "pointer",
                 background: selectedWard === ward ? "#ede9fe" : "transparent",
                 fontSize: "13px",
@@ -284,7 +343,16 @@ export default function CRMMap({ leads }: Props) {
       </div>
 
       {/* Map */}
-      <div ref={containerRef} style={{ flex: 1, borderRadius: "8px", overflow: "hidden" }} />
+      <div
+        ref={containerRef}
+        style={{
+          flex: 1,
+          minHeight: isMobile ? "420px" : undefined,
+          height: isMobile ? "420px" : "100%",
+          borderRadius: "8px",
+          overflow: "hidden",
+        }}
+      />
     </div>
   );
 }

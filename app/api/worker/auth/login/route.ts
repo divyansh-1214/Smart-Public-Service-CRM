@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!officer || officer.status !== OfficerStatus.ACTIVE) {
+    if (!officer || (officer.status !== OfficerStatus.ACTIVE && officer.status !== OfficerStatus.INACTIVE)) {
       return NextResponse.json(
-        { error: "Worker account not found or inactive" },
+        { error: "Worker account not found or unavailable" },
         { status: 401 },
       );
     }
