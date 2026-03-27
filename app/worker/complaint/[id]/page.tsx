@@ -19,11 +19,13 @@ import {
   MessageSquare,
   Image as ImageIcon,
   Send,
-  Loader2
+  Loader2,
+  Camera
 } from "lucide-react";
 import { format } from "date-fns";
 import { ComplaintStatus, Priority } from "@prisma/client";
 import axios from "axios";
+import FileUploader from "@/components/crm/FileUploader";
 
 const workerUpdatableStatuses = Object.values(ComplaintStatus).filter(
   (status) => status !== ComplaintStatus.RESOLVED,
@@ -39,6 +41,9 @@ export default function WorkerComplaintDetailsPage() {
   const [newComment, setNewComment] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<ComplaintStatus | "">("");
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [showResolvePanel, setShowResolvePanel] = useState(false);
+  const [resolutionProofUrls, setResolutionProofUrls] = useState<string[]>([]);
+  const [resolutionNote, setResolutionNote] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -100,13 +105,26 @@ export default function WorkerComplaintDetailsPage() {
   };
 
   const handleResolve = async () => {
+    if (resolutionProofUrls.length === 0) {
+      setStatusError("Please upload at least one proof photo before resolving.");
+      return;
+    }
+    setStatusError(null);
     setUpdating(true);
     try {
-      await axios.patch(`/api/complaint/resolve/${id}`, { status: "RESOLVED" });
-      alert("Case marked as resolved!");
+      await axios.patch(`/api/complaint/resolve/${id}`, {
+        resolutionProofUrls,
+        resolutionNote: resolutionNote.trim() || undefined,
+      });
+      alert("Case marked as resolved with proof!");
       router.push("/worker");
     } catch (error) {
-      console.error("Error resolving complaint:", error);
+      if (axios.isAxiosError(error)) {
+        setStatusError((error.response?.data as { error?: string })?.error ?? "Failed to resolve");
+      } else {
+        console.error("Error resolving complaint:", error);
+        setStatusError("Failed to resolve complaint.");
+      }
     } finally {
       setUpdating(false);
     }
@@ -153,12 +171,15 @@ export default function WorkerComplaintDetailsPage() {
             Update Status
           </button>
           <button 
-            onClick={handleResolve}
-            disabled={updating}
-            className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-bold flex items-center gap-3 shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all disabled:opacity-50"
+            onClick={() => setShowResolvePanel(!showResolvePanel)}
+            className={`px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl transition-all ${
+              showResolvePanel
+                ? "bg-gray-200 text-gray-700 shadow-gray-100 hover:bg-gray-300"
+                : "bg-emerald-600 text-white shadow-emerald-100 hover:bg-emerald-700"
+            }`}
           >
-            {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-            Resolve Case
+            {showResolvePanel ? <X className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+            {showResolvePanel ? "Cancel" : "Resolve Case"}
           </button>
         </div>
       </div>
@@ -166,6 +187,49 @@ export default function WorkerComplaintDetailsPage() {
       {statusError && (
         <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
           {statusError}
+        </div>
+      )}
+
+      {/* Resolution Proof Panel */}
+      {showResolvePanel && (
+        <div className="bg-emerald-50 rounded-3xl p-8 border-2 border-emerald-200 space-y-6 animate-fade-up">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center">
+              <Camera className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-gray-900 tracking-tight">Upload Resolution Proof</h3>
+              <p className="text-sm font-medium text-gray-500">Upload photos proving the work has been done. The citizen will verify these.</p>
+            </div>
+          </div>
+
+          <FileUploader
+            value={resolutionProofUrls}
+            onChange={setResolutionProofUrls}
+            maxFiles={5}
+            label="Proof Photos"
+            description="Upload at least 1 photo showing the completed work"
+          />
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-gray-400 uppercase tracking-widest block">Resolution Note (Optional)</label>
+            <textarea
+              value={resolutionNote}
+              onChange={(e) => setResolutionNote(e.target.value)}
+              placeholder="Describe the work done to resolve this complaint..."
+              className="w-full h-24 px-6 py-4 bg-white border-2 border-emerald-100 rounded-2xl font-bold text-gray-900 focus:border-emerald-500 transition-all outline-none resize-none"
+              maxLength={2000}
+            />
+          </div>
+
+          <button
+            onClick={handleResolve}
+            disabled={updating || resolutionProofUrls.length === 0}
+            className="w-full px-8 py-4 bg-emerald-600 text-white rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+            {resolutionProofUrls.length === 0 ? "Upload Proof to Resolve" : `Resolve with ${resolutionProofUrls.length} Proof Photo${resolutionProofUrls.length > 1 ? "s" : ""}`}
+          </button>
         </div>
       )}
 
