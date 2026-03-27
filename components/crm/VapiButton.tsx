@@ -33,6 +33,10 @@ const VapiButton = () => {
     import("@vapi-ai/web").then((VapiModule) => {
       const Vapi = VapiModule.default;
       const pubKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
+      
+      // Log environment for debugging
+      console.log("[Vapi] SDK import successful. Public key present:", !!pubKey);
+      
       // If undefined, pass a throwaway to avoid instantiation crashes, but toggleCall will prevent actual calls
       const vapiInstance = new Vapi(pubKey || "public-key-placeholder");
       vapiRef.current = vapiInstance;
@@ -60,6 +64,7 @@ const VapiButton = () => {
             },
           ]);
         } else if (msg.type === "function-call") {
+          console.log("[Vapi] Function call:", msg.functionCall.name);
           setMessages((prev) => [
             ...prev,
             {
@@ -73,11 +78,17 @@ const VapiButton = () => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vapiInstance.on("error", (e: any) => {
-        console.error("Vapi error:", e);
+        console.error("[Vapi] Detailed error:", e);
+        const errorCode = e.code || e.statusCode || e.errorMsg || "Unknown";
+        const errorMsg = e.errorMsg || e.message?.msg || e.message || "Connection failed";
+        console.error(`[Vapi] Error Code: ${errorCode}, Message: ${errorMsg}`);
         setCallStatus("inactive");
-        setMessages((prev) => [...prev, { id: Date.now().toString(), role: "system", text: `Error: ${e.errorMsg || e.message?.msg || "Connection failed"}` }]);
+        setMessages((prev) => [...prev, { id: Date.now().toString(), role: "system", text: `Error: ${errorMsg} (Code: ${errorCode})` }]);
       });
-    }).catch(err => console.error("Failed to load Vapi:", err));
+    }).catch(err => {
+      console.error("[Vapi] Failed to load SDK:", err);
+      setMessages((prev) => [...prev, { id: Date.now().toString(), role: "system", text: `SDK Load Error: ${err.message}` }]);
+    });
 
     return () => {
       if (vapiRef.current) {
